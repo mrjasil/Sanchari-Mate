@@ -1,8 +1,16 @@
-'use client'
-import "./globals.css";
-import Script from "next/script";
-import { AdminProvider } from "@/store/AdminContext";
-import LayoutWrapper from "@/components/layout/LayoutWrapper";
+// src/app/layout.tsx
+import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
+import './globals.css';
+import { AdminProvider } from '@/store/AdminContext';
+import LayoutWrapper from '@/components/layout/LayoutWrapper';
+
+const inter = Inter({ subsets: ['latin'] });
+
+export const metadata: Metadata = {
+  title: 'Sanchari Mate',
+  description: 'Your travel companion',
+};
 
 export default function RootLayout({
   children,
@@ -10,15 +18,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <head>
-        <title>Sanchari Mate</title>
-        <meta name="description" content="Your beautiful travel companion" />
-      </head>
-      <body className="antialiased bg-white text-gray-900">
-        <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="beforeInteractive" />
+    <html lang="en" suppressHydrationWarning>
+      <body className={`${inter.className} antialiased`} suppressHydrationWarning>
+        {/* Navbar/Footer visibility is handled inside LayoutWrapper */}
         <AdminProvider>
-          <LayoutWrapper>{children}</LayoutWrapper>
+          <LayoutWrapper>
+            {children}
+          </LayoutWrapper>
         </AdminProvider>
       </body>
     </html>

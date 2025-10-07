@@ -1,8 +1,9 @@
+// src/components/admin/CustomersTable.tsx
 'use client';
 import { useState } from 'react';
 import { Customer } from '@/types/admin';
 import { useAdminStore } from '@/store/adminStore';
-import UserBlockModal from './UserBlockModal';
+import CustomerBlockModal from './CustomerBlockModal';
 
 interface CustomersTableProps {
   customers: Customer[];
@@ -12,27 +13,31 @@ export default function CustomersTable({ customers }: CustomersTableProps) {
   const [showBlockModal, setShowBlockModal] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [blockReason, setBlockReason] = useState('');
   const { blockUser, unblockUser } = useAdminStore();
 
   const handleBlockClick = (customer: Customer) => {
     setSelectedCustomer(customer);
     setShowBlockModal(true);
+    setBlockReason('');
   };
 
-  const handleBlockConfirm = async (reason: string) => {
-    if (selectedCustomer) {
+  const handleBlockConfirm = async () => {
+    if (selectedCustomer && blockReason.trim()) {
       try {
         setActionLoading(selectedCustomer.id);
-        await blockUser(selectedCustomer.id, reason);
+        await blockUser(selectedCustomer.id, blockReason);
         setShowBlockModal(false);
         setSelectedCustomer(null);
+        setBlockReason('');
       } catch (error) {
         console.error('Failed to block user:', error);
-        // You can add a toast notification here
         alert('Failed to block user. Please try again.');
       } finally {
         setActionLoading(null);
       }
+    } else {
+      alert('Please provide a reason for blocking this user.');
     }
   };
 
@@ -42,7 +47,6 @@ export default function CustomersTable({ customers }: CustomersTableProps) {
       await unblockUser(customerId);
     } catch (error) {
       console.error('Failed to unblock user:', error);
-      // You can add a toast notification here
       alert('Failed to unblock user. Please try again.');
     } finally {
       setActionLoading(null);
@@ -133,12 +137,17 @@ export default function CustomersTable({ customers }: CustomersTableProps) {
         </table>
       </div>
 
-      <UserBlockModal
+      <CustomerBlockModal
         isOpen={showBlockModal}
-        onClose={() => setShowBlockModal(false)}
+        onClose={() => {
+          setShowBlockModal(false);
+          setBlockReason('');
+        }}
         onConfirm={handleBlockConfirm}
         customer={selectedCustomer}
         loading={actionLoading === selectedCustomer?.id}
+        reason={blockReason}
+        onReasonChange={setBlockReason}
       />
     </>
   );

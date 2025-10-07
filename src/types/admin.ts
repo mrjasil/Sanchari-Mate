@@ -1,9 +1,12 @@
-export interface AdminUser {
+// src/types/admin.ts
+export interface User {
   id: string;
   name: string;
   email: string;
-  role: 'super_admin' | 'manager' | 'support';
-  createdAt: Date;
+  phone: string;
+  status: 'active' | 'blocked';
+  joinedDate: string;
+  bookings: number;
 }
 
 export interface Customer {
@@ -12,42 +15,24 @@ export interface Customer {
   email: string;
   phone: string;
   isBlocked: boolean;
-  blockedAt?: Date;
-  blockReason?: string;
   totalBookings: number;
-  createdAt: Date;
-}
-
-export interface Tour {
-  id: string;
-  title: string;
-  description: string;
-  destination: string;
-  duration: string;
-  price: number;
-  images: string[];
-  status: 'active' | 'inactive';
-  createdAt: Date;
+  createdAt: string;
+  lastLogin?: string;
+  avatar?: string;
 }
 
 export interface Booking {
   id: string;
-  customerId: string;
-  customerName: string;
-  tourId: string;
   tourName: string;
-  status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
-  paymentStatus: 'pending' | 'paid' | 'failed';
-  totalAmount: number;
-  travelDate: Date;
-  numberOfTravelers: number;
-  createdAt: Date;
+  customerName: string;
+  amount: number;
+  date: string;
+  status: 'confirmed' | 'pending' | 'cancelled';
 }
 
 export interface DashboardStats {
-  totalBookings: number;
-  totalRevenue: number;
+  totalSales: number;
+  newBookings: number;
   totalCustomers: number;
-  activeTours: number;
-  pendingBookings: number;
+  pendingEnquiries: number;
 }

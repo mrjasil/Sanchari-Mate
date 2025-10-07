@@ -1,28 +1,29 @@
+// src/app/admin/layout.tsx
 'use client';
-import { useAdmin } from '@/store/AdminContext';
-import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import AdminSidebar from '@/components/admin/AdminSidebar';
 import AdminHeader from '@/components/admin/AdminHeader';
+import { useAdmin } from '@/store/AdminContext';
 
 export default function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { isAdmin, loading } = useAdmin();
+  const { isAdmin, isInitialized } = useAdmin();
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading && !isAdmin) {
-      router.push('/admin/adminlogin');
+    if (isInitialized && !isAdmin) {
+      router.push('/adminlogin');
     }
-  }, [isAdmin, loading, router]);
+  }, [isAdmin, isInitialized, router]);
 
-  if (loading) {
+  if (!isInitialized) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Loading...</div>
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
       </div>
     );
   }
@@ -32,14 +33,13 @@ export default function AdminLayout({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    // This div should be the main container, not nested in invalid HTML
+    <div className="flex h-screen bg-gray-50">
       <AdminSidebar />
-      <div className="lg:pl-64">
+      <div className="flex-1 flex flex-col overflow-hidden">
         <AdminHeader />
-        <main className="py-6">
-          <div className="mx-auto px-4 sm:px-6 md:px-8">
-            {children}
-          </div>
+        <main className="flex-1 overflow-x-hidden overflow-y-auto">
+          {children}
         </main>
       </div>
     </div>

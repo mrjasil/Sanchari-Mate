@@ -1,4 +1,3 @@
-// app/trips/page.tsx
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
@@ -6,258 +5,257 @@ import { useRouter } from "next/navigation";
 import { tripAPI } from "@/lib/api";
 import { Trip } from "@/types/Trip";
 import { useAuthStore } from "@/store/authStore";
+import TripCard from "@/components/ui/TripCard/TripCard";
+import { useAlert } from "@/hooks/useAlert";
 
 export default function MyTripsPage() {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [tripToDelete, setTripToDelete] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   
   const router = useRouter();
   const { user, isAuthenticated } = useAuthStore();
+  const alert = useAlert();
 
-  useEffect(() => {
-    const fetchUserTrips = async () => {
-      if (!isAuthenticated || !user) {
-        router.push('/login');
-        return;
-      }
+  const fetchUserTrips = async () => {
+    if (!isAuthenticated || !user) {
+      router.push('/login');
+      return;
+    }
 
-      setLoading(true);
-      setError(null);
-      try {
-        // Fetch trips created by current user
-        const userTrips = await tripAPI.getUserTrips(user.id);
-        setTrips(userTrips || []);
-      } catch (error) {
-        console.error('Failed to fetch trips:', error);
-        setError('Failed to load your trips');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchUserTrips();
-  }, [isAuthenticated, user, router]);
-
-  const handleEdit = (tripId: string) => {
-    router.push(`/trips/edit/${tripId}`);
-  };
-
-  const confirmDelete = (tripId: string) => {
-    setTripToDelete(tripId);
-    setShowDeleteModal(true);
-  };
-
-  const handleDelete = async () => {
-    if (!tripToDelete) return;
-
+    setLoading(true);
+    setError(null);
     try {
-      await tripAPI.deleteTrip(tripToDelete);
-      setTrips(trips.filter(trip => trip.id !== tripToDelete));
-      setShowDeleteModal(false);
-      setTripToDelete(null);
+      const userTrips = await tripAPI.getUserTrips(user.id);
+      setTrips(userTrips || []);
     } catch (error) {
-      console.error('Failed to delete trip:', error);
-      setError('Failed to delete trip');
+      console.error('Failed to fetch trips:', error);
+      setError('Failed to load your trips');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const cancelDelete = () => {
-    setShowDeleteModal(false);
-    setTripToDelete(null);
+  useEffect(() => {
+    fetchUserTrips();
+    
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        fetchUserTrips();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [isAuthenticated, user, router]);
+
+  const handleEdit = (tripId: string) => {
+    console.log('Editing trip:', tripId);
+    router.push(`/trips/edit/${tripId}`);
+  };
+
+  const confirmDelete = async (tripId: string) => {
+    const tripToDelete = trips.find(trip => trip.id === tripId);
+    if (!tripToDelete) return;
+
+    // Check if deletion is allowed
+    const tripStartDate = new Date(tripToDelete.startDate);
+    const today = new Date();
+    
+    if (today >= tripStartDate || tripToDelete.status !== 'planned') {
+      await alert.warning(
+        'Cannot Delete Trip',
+        'Cannot delete ongoing, completed, or past trips. You can only delete planned trips before they start.'
+      );
+      return;
+    }
+
+    const result = await alert.deleteConfirm('this trip');
+    
+    if (result.isConfirmed) {
+      try {
+        await tripAPI.deleteTrip(tripId);
+        await fetchUserTrips();
+        await alert.success('Success!', 'Your trip has been deleted successfully.');
+      } catch (error) {
+        console.error('Failed to delete trip:', error);
+        await alert.error('Error', 'Failed to delete trip. Please try again.');
+      }
+    }
+  };
+
+  // Refresh trips manually
+  const refreshTrips = async () => {
+    const loadingAlert = await alert.loading('Refreshing trips...');
+    try {
+      await fetchUserTrips();
+      await alert.close();
+      await alert.success('Refreshed!', 'Your trips have been updated.');
+    } catch (error) {
+      await alert.close();
+      await alert.error('Error', 'Failed to refresh trips.');
+    }
+  };
+
+  // Handle action errors from TripCard
+  const handleActionError = (errorMessage: string) => {
+    alert.error('Action Failed', errorMessage);
+  };
+
+  // Clear errors
+  const clearErrors = () => {
+    setError(null);
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-6xl mx-auto px-4">
-          <div className="text-center">Loading your trips...</div>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600 text-lg">Loading your amazing trips...</p>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">My Trips</h1>
-          <p className="text-gray-600 mt-2">Manage and organize your travel plans</p>
-          
-          {/* Create New Trip Button */}
-          <div className="mt-4">
-            <Link
-              href="/trips/create"
-              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200"
-            >
-              + Create New Trip
-            </Link>
+          <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
+            <div className="text-center lg:text-left">
+              <h1 className="text-4xl font-bold text-gray-900 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text">
+                My Trips
+              </h1>
+              <p className="text-gray-600 mt-2 text-lg">Manage and organize your travel adventures</p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-end">
+              {/* <button
+                onClick={refreshTrips}
+                className="inline-flex items-center px-6 py-3 bg-white text-gray-700 border border-gray-300 rounded-xl hover:bg-gray-50 transition-all duration-200 shadow-sm hover:shadow-md font-medium"
+              >
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                {/* Refresh Trips */}
+              {/* </button>  */}
+              <Link
+                href="/planner"
+                className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-lg hover:shadow-xl font-semibold text-center justify-center"
+              >
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Create New Trip
+              </Link>
+            </div>
           </div>
         </div>
 
-        {/* Error Message */}
+        {/* Error Messages */}
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-6">
-            {error}
+          <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-xl mb-6 flex items-center justify-between shadow-sm">
+            <div className="flex items-center">
+              <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>{error}</span>
+            </div>
+            <button onClick={clearErrors} className="text-red-500 hover:text-red-700">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
         )}
 
         {/* Trips Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {trips.map((trip) => (
-            <TripCard 
-              key={trip.id} 
-              trip={trip} 
-              onEdit={handleEdit}
-              onDelete={confirmDelete}
-            />
-          ))}
-        </div>
-
-        {/* Empty State */}
-        {trips.length === 0 && !loading && (
-          <div className="text-center py-12">
-            <div className="text-gray-400 text-6xl mb-4">🌎</div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No trips yet</h3>
-            <p className="text-gray-600 mb-6">Start planning your next adventure!</p>
-            <Link
-              href="/trips/create"
-              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200"
-            >
-              Plan Your First Trip
-            </Link>
+        {trips.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+            {trips.map((trip) => (
+              <TripCard 
+                key={trip.id} 
+                trip={trip} 
+                onEdit={handleEdit}
+                onDelete={confirmDelete}
+                showEditButton={true}
+                showDeleteButton={true}
+                showJoinButton={false}
+                showViewDetailsButton={true}
+                currentUserId={user?.id}
+                forceShowActions={true}
+                onJoinError={handleActionError}
+              />
+            ))}
           </div>
-        )}
-      </div>
-
-      {/* Delete Confirmation Modal */}
-      {showDeleteModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-md w-full p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete Trip</h3>
-            <p className="text-gray-600 mb-6">
-              Are you sure you want to delete this trip? This action cannot be undone.
-            </p>
-            <div className="flex justify-end space-x-3">
-              <button
-                onClick={cancelDelete}
-                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors duration-200"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleDelete}
-                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors duration-200"
-              >
-                Delete Trip
-              </button>
+        ) : (
+          /* Empty State */
+          <div className="text-center py-16 bg-white rounded-2xl shadow-sm border border-gray-200">
+            <div className="max-w-md mx-auto">
+              <div className="text-8xl mb-6">🌎</div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-3">No trips planned yet</h3>
+              <p className="text-gray-600 text-lg mb-8 leading-relaxed">
+                Your next adventure is waiting! Start planning your dream trip and create unforgettable memories.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <Link
+                  href="/planner"
+                  className="inline-flex items-center px-8 py-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-lg hover:shadow-xl font-semibold text-lg"
+                >
+                  <svg className="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  Plan Your First Trip
+                </Link>
+                <Link
+                  href="/trips/all"
+                  className="inline-flex items-center px-8 py-4 bg-white text-gray-700 border border-gray-300 rounded-xl hover:bg-gray-50 transition-all duration-200 shadow-sm hover:shadow-md font-medium text-lg"
+                >
+                  <svg className="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  Explore Trips
+                </Link>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// Trip Card Component
-interface TripCardProps {
-  trip: Trip;
-  onEdit: (tripId: string) => void;
-  onDelete: (tripId: string) => void;
-}
-
-function TripCard({ trip, onEdit, onDelete }: TripCardProps) {
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString();
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'planned': return 'bg-yellow-100 text-yellow-800';
-      case 'ongoing': return 'bg-green-100 text-green-800';
-      case 'completed': return 'bg-blue-100 text-blue-800';
-      case 'cancelled': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  return (
-    <div className="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow duration-300">
-      {/* Trip Image/Header */}
-      <div className="h-32 bg-gradient-to-r from-blue-500 to-purple-600 relative">
-        {trip.image && (
-          <img 
-            src={trip.image} 
-            alt={trip.title}
-            className="w-full h-full object-cover"
-          />
         )}
-        <div className="absolute top-3 right-3">
-          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(trip.status)}`}>
-            {trip.status.charAt(0).toUpperCase() + trip.status.slice(1)}
-          </span>
-        </div>
-      </div>
 
-      {/* Trip Content */}
-      <div className="p-4">
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">{trip.title}</h3>
-        <div className="space-y-2 text-sm text-gray-600">
-          <div className="flex items-center">
-            <span className="text-gray-400 mr-2">📍</span>
-            {trip.destination}
-          </div>
-          <div className="flex items-center">
-            <span className="text-gray-400 mr-2">📅</span>
-            {formatDate(trip.startDate)} - {formatDate(trip.endDate)}
-          </div>
-          {trip.budget > 0 && (
-            <div className="flex items-center">
-              <span className="text-gray-400 mr-2">💰</span>
-              ₹{trip.budget.toLocaleString()}
+        {/* Stats Bar */}
+        {trips.length > 0 && (
+          <div className="mt-12 bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+              <div>
+                <div className="text-2xl font-bold text-blue-600">{trips.length}</div>
+                <div className="text-gray-600 text-sm">Total Trips</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-green-600">
+                  {trips.filter(trip => trip.status === 'planned').length}
+                </div>
+                <div className="text-gray-600 text-sm">Planned</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-orange-600">
+                  {trips.filter(trip => trip.status === 'ongoing').length}
+                </div>
+                <div className="text-gray-600 text-sm">Ongoing</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-gray-600">
+                  {trips.filter(trip => trip.status === 'completed').length}
+                </div>
+                <div className="text-gray-600 text-sm">Completed</div>
+              </div>
             </div>
-          )}
-        </div>
-
-        {/* Description Preview */}
-        {trip.description && (
-          <p className="text-sm text-gray-500 mt-3 line-clamp-2">
-            {trip.description}
-          </p>
-        )}
-
-        {/* Action Buttons */}
-        <div className="flex justify-between items-center mt-4 pt-4 border-t border-gray-100">
-          <Link 
-            href={`/trips/${trip.id}`}
-            className="text-blue-600 hover:text-blue-700 font-medium text-sm"
-          >
-            View Details
-          </Link>
-          
-          <div className="flex space-x-2">
-            {/* Edit Button */}
-            <button
-              onClick={() => onEdit(trip.id)}
-              className="flex items-center space-x-1 px-3 py-2 text-sm bg-blue-50 text-blue-600 rounded-md hover:bg-blue-100 transition-colors duration-200"
-            >
-              <span>✏️</span>
-              <span>Edit</span>
-            </button>
-
-            {/* Delete Button */}
-            <button
-              onClick={() => onDelete(trip.id)}
-              className="flex items-center space-x-1 px-3 py-2 text-sm bg-red-50 text-red-600 rounded-md hover:bg-red-100 transition-colors duration-200"
-            >
-              <span>🗑️</span>
-              <span>Delete</span>
-            </button>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

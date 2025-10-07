@@ -1,29 +1,50 @@
 "use client";
 import { useEffect, useState } from 'react';
 import { useTrips } from '@/hooks/useTrips';
-import TripCard from '@/components/ui/TripCard';
+import TripCard from '@/components/ui/TripCard/TripCard';
 import { useAuthStore } from '@/store/authStore';
 
 export default function AllTripsPage() {
-  const { trips, loading, error, fetchTrips } = useTrips();
+  const { trips, loading, error, fetchTrips, joinTrip } = useTrips(); // Make sure joinTrip is imported
   const { user } = useAuthStore();
   const [filteredTrips, setFilteredTrips] = useState<any[]>([]);
-  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     fetchTrips();
-  }, [refreshKey]);
+  }, []);
 
   useEffect(() => {
     // Filter out private trips unless user is the creator
-    const publicTrips = trips.filter(trip => 
+    const publicTrips = trips.reverse().filter(trip => 
       trip.isPublic || trip.createdBy === user?.id
     );
     setFilteredTrips(publicTrips);
   }, [trips, user]);
 
-  const handleJoinUpdate = () => {
-    setRefreshKey(prev => prev + 1);
+  // ADD THIS FUNCTION - Handle join trip
+  const handleJoinTrip = async (tripToJoin: any) => {
+    if (!user) return;
+    
+    try {
+      await joinTrip(tripToJoin.id, 1); // Join with 1 passenger
+      
+      // Update local state immediately for real-time update
+      setFilteredTrips(prevTrips => 
+        prevTrips.map(trip => 
+          trip.id === tripToJoin.id 
+            ? {
+                ...trip,
+                availableSeats: Math.max(0, (trip.availableSeats || trip.maxParticipants) - 1),
+                currentParticipants: (trip.currentParticipants || 0) + 1,
+                joinedUsers: [...(trip.joinedUsers || []), user.id]
+              }
+            : trip
+        )
+      );
+    } catch (error) {
+      console.error('Failed to join trip:', error);
+      alert('Failed to join trip. Please try again.');
+    }
   };
 
   if (loading) {
@@ -63,7 +84,7 @@ export default function AllTripsPage() {
                 showJoinButton={true}
                 currentUserId={user?.id}
                 userAlreadyJoined={trip.joinedUsers?.includes(user?.id)}
-                onJoinUpdate={handleJoinUpdate}
+                onJoin={handleJoinTrip} // ← ADD THIS PROP
               />
             ))}
           </div>

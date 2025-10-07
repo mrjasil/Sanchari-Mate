@@ -1,104 +1,95 @@
+// src/components/admin/UserBlockModal.tsx
 'use client';
-import { useState } from 'react';
-import { Customer } from '@/types/admin';
+import { useEffect, useRef } from 'react';
+import { gsap } from 'gsap';
+import { User } from '@/types/admin';
 
 interface UserBlockModalProps {
   isOpen: boolean;
+  user: User | null;
   onClose: () => void;
-  onConfirm: (reason: string) => void;
-  customer: Customer | null;
+  onConfirm: () => void;
 }
 
-export default function UserBlockModal({
-  isOpen,
-  onClose,
-  onConfirm,
-  customer
+export default function UserBlockModal({ 
+  isOpen, 
+  user, 
+  onClose, 
+  onConfirm 
 }: UserBlockModalProps) {
-  const [reason, setReason] = useState('');
-  const [customReason, setCustomReason] = useState('');
+  const modalRef = useRef<HTMLDivElement>(null);
+  const backdropRef = useRef<HTMLDivElement>(null);
 
-  if (!isOpen || !customer) return null;
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+      
+      const ctx = gsap.context(() => {
+        gsap.fromTo(backdropRef.current, 
+          { opacity: 0 },
+          { opacity: 1, duration: 0.3 }
+        );
+        gsap.fromTo(modalRef.current, 
+          { scale: 0.8, opacity: 0 },
+          { scale: 1, opacity: 1, duration: 0.3, ease: 'back.out(1.7)' }
+        );
+      });
 
-  const predefinedReasons = [
-    'Suspicious Activity',
-    'Fraudulent Booking',
-    'Payment Issues',
-    'Inappropriate Behavior',
-    'Terms Violation',
-    'Spam Account'
-  ];
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const finalReason = reason === 'other' ? customReason : reason;
-    if (finalReason.trim()) {
-      onConfirm(finalReason);
-      setReason('');
-      setCustomReason('');
+      return () => ctx.revert();
+    } else {
+      document.body.style.overflow = 'unset';
     }
+  }, [isOpen]);
+
+  if (!isOpen || !user) return null;
+
+  const isBlocking = user.status === 'active';
+  const actionText = isBlocking ? 'Block' : 'Unblock';
+
+  const handleConfirm = () => {
+    onConfirm();
   };
 
   return (
-    <div className="modal-overlay">
-      <div className="modal-content">
-        <div className="modal-header">
-          <h3>Block User</h3>
-          <button onClick={onClose} className="modal-close">×</button>
-        </div>
+    <div 
+      ref={backdropRef}
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+      onClick={onClose}
+    >
+      <div 
+        ref={modalRef}
+        className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 className="text-xl font-bold text-gray-800 mb-4">
+          {actionText} User
+        </h2>
         
-        <div className="modal-body">
-          <p>
-            You are about to block <strong>{customer.name}</strong> ({customer.email})
-          </p>
-          
-          <form onSubmit={handleSubmit} className="block-form">
-            <div className="form-group">
-              <label>Block Reason *</label>
-              <select 
-                value={reason} 
-                onChange={(e) => setReason(e.target.value)}
-                required
-              >
-                <option value="">Select a reason</option>
-                {predefinedReasons.map((predefinedReason) => (
-                  <option key={predefinedReason} value={predefinedReason}>
-                    {predefinedReason}
-                  </option>
-                ))}
-                <option value="other">Other</option>
-              </select>
-            </div>
-            
-            {reason === 'other' && (
-              <div className="form-group">
-                <label>Custom Reason</label>
-                <textarea
-                  value={customReason}
-                  onChange={(e) => setCustomReason(e.target.value)}
-                  placeholder="Please provide specific details..."
-                  rows={3}
-                  required
-                />
-              </div>
-            )}
-            
-            <div className="form-group">
-              <label className="checkbox-label">
-                <input type="checkbox" defaultChecked />
-                Cancel all pending bookings
-              </label>
-            </div>
-            
-            <div className="modal-actions">
-              <button type="button" onClick={onClose} className="btn-secondary">
-                Cancel
-              </button>
-              <button type="submit" className="btn-danger">
-                Confirm Block
-              </button>
-            </div>
-          </form>
+        <p className="text-gray-600 mb-6">
+          Are you sure you want to {actionText.toLowerCase()} <strong>{user.name}</strong>? 
+          {isBlocking 
+            ? ' They will not be able to access their account until unblocked.'
+            : ' They will regain access to their account.'
+          }
+        </p>
+
+        <div className="flex justify-end space-x-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleConfirm}
+            className={`px-4 py-2 text-white font-medium rounded-lg transition-colors ${
+              isBlocking 
+                ? 'bg-red-500 hover:bg-red-600' 
+                : 'bg-green-500 hover:bg-green-600'
+            }`}
+          >
+            {actionText} User
+          </button>
         </div>
       </div>
     </div>

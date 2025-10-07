@@ -15,6 +15,7 @@ export default function Navbar() {
     { name: "My Trips", href: "/trips" },
     { name: "All Trips", href: "/trips/all" },
     { name: "Planner", href: "/planner" },
+    { name: "Memories", href: "/memories" },
   ];
 
   return (

@@ -1,4 +1,6 @@
 export interface Trip {
+  creatorId: string | undefined;
+  imageUrl: any;
   ownerId: string;
   user: any;
   userId: string;
@@ -237,6 +239,9 @@ export interface TripStats {
 
 // NEW: User interface for participant details
 export interface User {
+  [x: string]: string;
+  bookings: ReactNode;
+  status: string;
   id: string;
   name: string;
   email: string;
