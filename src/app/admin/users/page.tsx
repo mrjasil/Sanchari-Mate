@@ -1,3 +1,4 @@
+"use client";
 import UserManagement from "@/components/admin/UserManagment";
 import { users } from "@/lib/constants";
 import { useRef, useEffect } from "react";

@@ -1,8 +1,8 @@
-// src/app/layout.tsx
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { AdminProvider } from '@/store/AdminContext';
+import { AuthProvider } from '@/lib/auth';
 import LayoutWrapper from '@/components/layout/LayoutWrapper';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -22,9 +22,11 @@ export default function RootLayout({
       <body className={`${inter.className} antialiased`} suppressHydrationWarning>
         {/* Navbar/Footer visibility is handled inside LayoutWrapper */}
         <AdminProvider>
-          <LayoutWrapper>
-            {children}
-          </LayoutWrapper>
+          <AuthProvider>
+            <LayoutWrapper>
+              {children}
+            </LayoutWrapper>
+          </AuthProvider>
         </AdminProvider>
       </body>
     </html>
