@@ -1,55 +1,49 @@
 'use client';
 import { useState, useEffect } from 'react';
+import type { DashboardStats as DashboardStatsType } from '@/types/admin';
 
-interface StatsData {
-  totalBookings: number;
-  totalRevenue: number;
-  activeTours: number;
-  totalCustomers: number;
-  pendingEnquiries: number;
+interface DashboardStatsProps {
+  stats?: DashboardStatsType;
 }
 
-export default function DashboardStats() {
-  const [stats, setStats] = useState<StatsData>({
-    totalBookings: 0,
-    totalRevenue: 0,
-    activeTours: 0,
-    totalCustomers: 0,
-    pendingEnquiries: 0,
-  });
+export default function DashboardStats({ stats: statsProp }: DashboardStatsProps) {
+  const [stats, setStats] = useState<DashboardStatsType>(
+    statsProp || {
+      totalSales: 0,
+      newBookings: 0,
+      totalCustomers: 0,
+      pendingEnquiries: 0,
+    }
+  );
 
   useEffect(() => {
-    // Simulate data loading
+    if (statsProp) {
+      setStats(statsProp);
+      return;
+    }
+    // Fallback demo data when no props provided
     setStats({
-      totalBookings: 1247,
-      totalRevenue: 89234,
-      activeTours: 28,
+      totalSales: 89234,
+      newBookings: 1247,
       totalCustomers: 845,
       pendingEnquiries: 12,
     });
-  }, []);
+  }, [statsProp]);
 
   const statCards = [
     {
-      title: 'Total Bookings',
-      value: stats.totalBookings,
-      icon: '📅',
-      color: 'blue',
-      change: '+12%',
-    },
-    {
-      title: 'Total Revenue',
-      value: `$${stats.totalRevenue.toLocaleString()}`,
+      title: 'Total Sales',
+      value: `₹${stats.totalSales.toLocaleString()}`,
       icon: '💰',
       color: 'green',
       change: '+8%',
     },
     {
-      title: 'Active Tours',
-      value: stats.activeTours,
-      icon: '✈️',
-      color: 'purple',
-      change: '+5%',
+      title: 'New Bookings',
+      value: stats.newBookings,
+      icon: '📅',
+      color: 'blue',
+      change: '+12%',
     },
     {
       title: 'Total Customers',
@@ -57,6 +51,13 @@ export default function DashboardStats() {
       icon: '👥',
       color: 'orange',
       change: '+15%',
+    },
+    {
+      title: 'Pending Enquiries',
+      value: stats.pendingEnquiries,
+      icon: '📧',
+      color: 'purple',
+      change: '+5%',
     },
   ];
 
