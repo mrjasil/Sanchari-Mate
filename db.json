@@ -783,5 +783,24 @@
       "joinedAt": "2025-10-06T10:41:25.880Z",
       "updatedAt": "2025-10-06T10:41:25.880Z"
     }
-  ]
+  ],
+  "chatRequests": [
+    {
+      "id": "1760079051251",
+      "userId": "1759692243661",
+      "userEmail": "jezlajebin@gmail.com",
+      "requestedAt": "2025-10-10T06:50:51.251Z",
+      "status": "pending"
+    },
+    {
+      "id": "1760090965546",
+      "userId": "1759692243661",
+      "userEmail": "jezlajebin@gmail.com",
+      "requestedAt": "2025-10-10T10:09:25.546Z",
+      "status": "pending"
+    }
+  ],
+  "messages": [],
+  "chatSessions": [],
+  "onlineUsers": []
 }

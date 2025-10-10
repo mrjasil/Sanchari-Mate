@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
+import { showWarningAlert } from '@/lib/alertService';
 
 interface ImageUploadProps {
   onImageSelect: (file: File) => void;
@@ -16,12 +17,12 @@ export default function ImageUpload({ onImageSelect, currentImage, className }: 
     const file = event.target.files?.[0];
     if (file) {
       if (!file.type.startsWith('image/')) {
-        alert('Please select an image file');
+        showWarningAlert('Invalid file', 'Please select an image file');
         return;
       }
 
       if (file.size > 5 * 1024 * 1024) {
-        alert('Image size should be less than 5MB');
+        showWarningAlert('File too large', 'Image size should be less than 5MB');
         return;
       }
 

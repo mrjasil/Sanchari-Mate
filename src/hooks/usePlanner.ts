@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { showWarningAlert, showErrorAlert, showSuccessAlert } from '@/lib/alertService';
 import { useAuthStore } from '@/store/authStore';
 import { tripAPI } from '@/lib/api';
 import { TripFormData } from '@/types/Trip';
@@ -215,13 +216,13 @@ export const usePlanner = () => {
     e.preventDefault();
     
     if (!isAuthenticated || !user) {
-      alert('Please login to create a trip');
+      showWarningAlert('Login required', 'Please login to create a trip');
       router.push('/login');
       return;
     }
 
     if (currentStep === 3 && !validateStep3()) {
-      alert('Please fix all validation errors before submitting.');
+      showWarningAlert('Fix validation errors', 'Please fix all validation errors before submitting.');
       return;
     }
 
@@ -270,12 +271,12 @@ export const usePlanner = () => {
       setCurrentStep(1);
       setErrors({});
       
-      alert('🎉 Trip created successfully! The trip has been added to your profile.');
+      showSuccessAlert('Trip created!', 'The trip has been added to your profile.');
       router.push(`/trips/${newTrip.id}`);
       
     } catch (error) {
       console.error('Error creating trip:', error);
-      alert('❌ Error creating trip. Please try again. Check if JSON server is running.');
+      showErrorAlert('Creation failed', 'Please try again. Check if JSON server is running.');
     } finally {
       setLoading(false);
     }

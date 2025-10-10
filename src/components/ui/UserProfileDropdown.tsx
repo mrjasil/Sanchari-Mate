@@ -4,6 +4,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useRouter } from 'next/navigation';
 
 export default function UserProfileDropdown({ mobileView = false, onItemClick = () => {} }) {
+  const [avatarError, setAvatarError] = useState(false); 
   const [isOpen, setIsOpen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -29,6 +30,7 @@ export default function UserProfileDropdown({ mobileView = false, onItemClick = 
       const reader = new FileReader();
       reader.onload = (event) => {
         setNewProfilePic(event.target?.result as string);
+        setAvatarError(false); 
       };
       reader.readAsDataURL(file);
     }
@@ -39,6 +41,7 @@ export default function UserProfileDropdown({ mobileView = false, onItemClick = 
       updateProfile({ profilePic: newProfilePic });
       setShowProfileModal(false);
       setNewProfilePic('');
+      setAvatarError(false); 
     }
   };
 
@@ -48,6 +51,19 @@ export default function UserProfileDropdown({ mobileView = false, onItemClick = 
     router.push('/');
   };
 
+
+  const getUserInitials = () => {
+    if (!user?.firstName) return 'U';
+    return user.firstName.charAt(0).toUpperCase();
+  };
+
+
+  useEffect(() => {
+    if (showProfileModal) {
+      setAvatarError(false);
+    }
+  }, [showProfileModal]);
+
   return (
     <>
       <div className="relative" ref={dropdownRef}>
@@ -56,11 +72,19 @@ export default function UserProfileDropdown({ mobileView = false, onItemClick = 
           className="flex items-center space-x-2 focus:outline-none transition-all duration-300 hover:scale-105 group"
         >
           <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-gray-300 backdrop-blur-sm group-hover:border-gray-400 transition-all duration-300 shadow-lg">
-            <img
-              src={user?.profilePic || '/images/default-avatar.jpg'}
-              alt="Profile"
-              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-            />
+            
+            {avatarError || !user?.profilePic ? (
+              <div className="w-full h-full bg-gradient-to-r from-blue-500 to-green-500 flex items-center justify-center text-white font-semibold text-lg">
+                {getUserInitials()}
+              </div>
+            ) : (
+              <img
+                src={user.profilePic}
+                alt="Profile"
+                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                onError={() => setAvatarError(true)}
+              />
+            )}
           </div>
           {!mobileView && (
             <span className="text-gray-800 font-semibold bg-gray-100/80 px-3 py-1 rounded-full backdrop-blur-sm border border-gray-300 hover:bg-gray-200 transition-all duration-300">
@@ -125,13 +149,24 @@ export default function UserProfileDropdown({ mobileView = false, onItemClick = 
               <div className="relative w-40 h-40 mx-auto mb-6">
                 <div className="absolute inset-0 bg-gradient-to-r from-purple-100 to-blue-100 rounded-full blur-lg"></div>
                 <div className="relative w-40 h-40 rounded-full bg-white backdrop-blur-sm overflow-hidden border-4 border-gray-200 shadow-2xl">
+                  {/* ✅ UPDATED PROFILE PREVIEW WITH ERROR HANDLING */}
                   {newProfilePic ? (
-                    <img src={newProfilePic} alt="New Profile" className="w-full h-full object-cover" />
+                    <img 
+                      src={newProfilePic} 
+                      alt="New Profile" 
+                      className="w-full h-full object-cover"
+                      onError={() => console.log('Error loading new profile pic')}
+                    />
+                  ) : avatarError || !user?.profilePic ? (
+                    <div className="w-full h-full bg-gradient-to-r from-blue-500 to-green-500 flex items-center justify-center text-white font-semibold text-3xl">
+                      {getUserInitials()}
+                    </div>
                   ) : (
                     <img
-                      src={user?.profilePic || '/images/default-avatar.jpg'}
+                      src={user.profilePic}
                       alt="Current Profile"
                       className="w-full h-full object-cover"
+                      onError={() => setAvatarError(true)}
                     />
                   )}
                 </div>
@@ -162,6 +197,7 @@ export default function UserProfileDropdown({ mobileView = false, onItemClick = 
                 onClick={() => {
                   setShowProfileModal(false);
                   setNewProfilePic('');
+                  setAvatarError(false);
                 }}
                 className="px-8 py-3 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-2xl hover:bg-gray-100 transition-all duration-300 backdrop-blur-sm hover:scale-105"
               >

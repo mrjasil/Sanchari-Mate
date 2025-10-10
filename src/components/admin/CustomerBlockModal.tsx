@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { gsap } from 'gsap';
 import { Customer } from '@/types/admin';
+import { showWarningAlert } from '@/lib/alertService';
 
 interface CustomerBlockModalProps {
   isOpen: boolean;
@@ -51,7 +52,7 @@ export default function CustomerBlockModal({
 
   const handleConfirm = () => {
     if (!reason.trim()) {
-      alert('Please provide a reason for blocking this customer.');
+      showWarningAlert('Reason required', 'Please provide a reason for blocking this customer.');
       return;
     }
     onConfirm();

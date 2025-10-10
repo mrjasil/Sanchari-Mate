@@ -1,27 +1,7 @@
 // app/api/admin/login/route.ts
 import { NextResponse } from 'next/server';
 
-// Mock user data - replace with your actual database call
-const users = [
-  {
-    id: "1759686159009",
-    email: "jasiljinu627@gmail.com",
-    password: "jasil@123456789",
-    isAdmin: false
-  },
-  {
-    id: "1759692243661", 
-    email: "jezlajebin@gmail.com",
-    password: "jezla@123456789",
-    isAdmin: false
-  },
-  {
-    id: "admin_001",
-    email: "admin@sanchari.com",
-    password: "admin123",
-    isAdmin: true
-  }
-];
+const JSON_SERVER_URL = process.env.JSON_SERVER_URL || 'http://localhost:3001';
 
 export async function POST(request: Request) {
   try {
@@ -29,8 +9,13 @@ export async function POST(request: Request) {
     
     console.log('Login attempt received:', { email });
 
-    // Find user in database
-    const user = users.find(u => u.email === email && u.password === password);
+    // Validate against JSON Server admins collection
+    const res = await fetch(`${JSON_SERVER_URL}/admins?email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`);
+    if (!res.ok) {
+      return NextResponse.json({ success: false, error: 'Auth service unavailable' }, { status: 503 });
+    }
+    const matches = await res.json();
+    const user = Array.isArray(matches) ? matches[0] : null;
     
     if (user) {
       // Check if user is admin

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Customer } from '@/types/admin';
 import { useAdminStore } from '@/store/adminStore';
 import CustomerBlockModal from './CustomerBlockModal';
+import { showErrorAlert, showWarningAlert } from '@/lib/alertService';
 
 interface CustomersTableProps {
   customers: Customer[];
@@ -32,12 +33,12 @@ export default function CustomersTable({ customers }: CustomersTableProps) {
         setBlockReason('');
       } catch (error) {
         console.error('Failed to block user:', error);
-        alert('Failed to block user. Please try again.');
+        showErrorAlert('Failed', 'Failed to block user. Please try again.');
       } finally {
         setActionLoading(null);
       }
     } else {
-      alert('Please provide a reason for blocking this user.');
+      showWarningAlert('Reason required', 'Please provide a reason for blocking this user.');
     }
   };
 
@@ -47,7 +48,7 @@ export default function CustomersTable({ customers }: CustomersTableProps) {
       await unblockUser(customerId);
     } catch (error) {
       console.error('Failed to unblock user:', error);
-      alert('Failed to unblock user. Please try again.');
+      showErrorAlert('Failed', 'Failed to unblock user. Please try again.');
     } finally {
       setActionLoading(null);
     }

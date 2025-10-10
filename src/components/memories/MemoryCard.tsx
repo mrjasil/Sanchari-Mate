@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Memory, Review } from '@/types/memory';
 import { useAuth } from '@/lib/auth';
+import { showErrorAlert, showWarningAlert } from '@/lib/alertService';
 
 interface MemoryCardProps {
   memory: Memory;
@@ -32,18 +33,18 @@ export default function MemoryCard({ memory, onDelete, onAddReview }: MemoryCard
       window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Download failed:', error);
-      alert('Failed to download image');
+      showErrorAlert('Download failed', 'Failed to download image');
     }
   };
 
   const handleAddReview = () => {
     if (!isAuthenticated || !user) {
-      alert('Please login to add a review');
+      showWarningAlert('Login required', 'Please login to add a review');
       return;
     }
 
     if (!newReview.comment.trim()) {
-      alert('Please enter a review comment');
+      showWarningAlert('Missing comment', 'Please enter a review comment');
       return;
     }
 

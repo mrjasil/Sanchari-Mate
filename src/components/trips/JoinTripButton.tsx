@@ -1,6 +1,7 @@
 "use client";
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { showWarningAlert, showSuccessAlert, showErrorAlert } from '@/lib/alertService';
 import { Trip } from '@/types/Trip';
 import { useAuthStore } from '@/store/authStore';
 import JoinTripModal from '@/components/ui/JoinTrip';
@@ -29,7 +30,7 @@ export default function JoinTripButton({ trip, fullWidth = false }: JoinTripButt
 
   const handleJoinClick = () => {
     if (!isAuthenticated || !user) {
-      alert('Please login to join this trip');
+      showWarningAlert('Login required', 'Please login to join this trip');
       router.push('/login');
       return;
     }
@@ -40,10 +41,10 @@ export default function JoinTripButton({ trip, fullWidth = false }: JoinTripButt
     try {
       if (!user?.id) throw new Error('User not authenticated');
       await tripAPI.joinTrip(request.tripId, user.id, request.passengers);
-      alert(`Successfully joined the trip! Advance payment: ₹${request.advancePayment}`);
+      showSuccessAlert('Joined!', `Advance payment: ₹${request.advancePayment}`);
       window.location.reload();
     } catch (error: any) {
-      alert(error.message || 'Failed to join trip. Please try again.');
+      showErrorAlert('Failed', error.message || 'Failed to join trip. Please try again.');
     }
   };
 

@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from 'react';
+import { showErrorAlert } from '@/lib/alertService';
 import { useTrips } from '@/hooks/useTrips';
 import TripCard from '@/components/ui/TripCard/TripCard';
 import { useAuthStore } from '@/store/authStore';
@@ -43,7 +44,7 @@ export default function AllTripsPage() {
       );
     } catch (error) {
       console.error('Failed to join trip:', error);
-      alert('Failed to join trip. Please try again.');
+      showErrorAlert('Join failed', 'Failed to join trip. Please try again.');
     }
   };
 

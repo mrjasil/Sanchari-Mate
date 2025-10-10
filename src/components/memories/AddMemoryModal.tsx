@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { showErrorAlert, showWarningAlert } from '@/lib/alertService';
 import { Memory } from '@/types/memory';
 import { useAuth } from '@/lib/auth';
 import ImageUpload from './ImageUpload';
@@ -52,7 +53,7 @@ export default function AddMemoryModal({ isOpen, onClose, onSave }: AddMemoryMod
     e.preventDefault();
     
     if (!selectedImage) {
-      alert('Please select an image');
+      showWarningAlert('Image required', 'Please select an image');
       return;
     }
 
@@ -74,7 +75,7 @@ export default function AddMemoryModal({ isOpen, onClose, onSave }: AddMemoryMod
       onClose();
     } catch (error) {
       console.error('Error saving memory:', error);
-      alert('Error saving memory. Please try again.');
+      showErrorAlert('Save failed', 'Error saving memory. Please try again.');
     } finally {
       setIsLoading(false);
     }
