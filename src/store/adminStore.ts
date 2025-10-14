@@ -1,118 +1,177 @@
 import { create } from 'zustand';
-
-// Define AdminState interface
-interface Customer {
-  id: string;
-  name: string;
-  email: string;
-  status: 'active' | 'blocked';
-  // Add other customer properties as needed
-}
+import { AdminStats, User, Booking, Trip, Payment } from '@/types/admin';
 
 interface AdminState {
-  customers: Customer[];
-  loading: boolean;
-  blockUser: (userId: string, reason: string) => Promise<void>;
-  unblockUser: (userId: string) => Promise<void>;
-  fetchCustomers: (filters?: { status?: string; search?: string }) => Promise<void>;
+  // Data
+  stats: AdminStats | null;
+  users: User[];
+  bookings: Booking[];
+  trips: Trip[];
+  payments: Payment[];
+  
+  // Loading states
+  loading: {
+    stats: boolean;
+    users: boolean;
+    bookings: boolean;
+    trips: boolean;
+    payments: boolean;
+  };
+  
+  // Actions
+  setStats: (stats: AdminStats) => void;
+  setUsers: (users: User[]) => void;
+  setBookings: (bookings: Booking[]) => void;
+  setTrips: (trips: Trip[]) => void;
+  setPayments: (payments: Payment[]) => void;
+  
+  setLoading: (key: keyof AdminState['loading'], value: boolean) => void;
+  
+  // User management actions
+  blockUser: (userId: string) => void;
+  unblockUser: (userId: string) => void;
+  deleteUser: (userId: string) => void;
+  
+  // Trip management actions
+  deleteTrip: (tripId: string) => void;
+  updateTripStatus: (tripId: string, status: Trip['status']) => void;
+  
+  // Data fetching
+  fetchStats: () => Promise<void>;
+  fetchUsers: () => Promise<void>;
+  fetchBookings: () => Promise<void>;
+  fetchTrips: () => Promise<void>;
+  fetchPayments: () => Promise<void>;
 }
 
-// API functions
-const adminApi = {
-  async getCustomers(filters?: { status?: string; search?: string }) {
-    const params = new URLSearchParams();
-    if (filters?.status) params.append('status', filters.status);
-    if (filters?.search) params.append('search', filters.search);
-    
-    const response = await fetch(`/api/admin/customers?${params}`);
-    const data = await response.json();
-    
-    if (!data.success) throw new Error(data.error);
-    return data.customers;
-  },
-
-  async blockUser(userId: string, reason: string, cancelPendingBookings = true) {
-    const response = await fetch('/api/admin/customers', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, reason, cancelPendingBookings }),
-    });
-    const data = await response.json();
-    
-    if (!data.success) throw new Error(data.error);
-    return data.user;
-  },
-
-  async unblockUser(userId: string) {
-    const response = await fetch('/api/admin/customers', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId }),
-    });
-    const data = await response.json();
-    
-    if (!data.success) throw new Error(data.error);
-    return data.user;
-  },
-};
-
-// Create the store with proper initial state
 export const useAdminStore = create<AdminState>((set, get) => ({
   // Initial state
-  customers: [],
-  loading: false,
+  stats: null,
+  users: [],
+  bookings: [],
+  trips: [],
+  payments: [],
+  
+  loading: {
+    stats: false,
+    users: false,
+    bookings: false,
+    trips: false,
+    payments: false,
+  },
 
-  // Customer Actions with API integration
-  blockUser: async (userId: string, reason: string) => {
+  // Setters
+  setStats: (stats) => set({ stats }),
+  setUsers: (users) => set({ users }),
+  setBookings: (bookings) => set({ bookings }),
+  setTrips: (trips) => set({ trips }),
+  setPayments: (payments) => set({ payments }),
+  
+  setLoading: (key, value) => set((state) => ({
+    loading: { ...state.loading, [key]: value }
+  })),
+
+  // User management
+  blockUser: (userId) => set((state) => ({
+    users: state.users.map(user =>
+      user.id === userId ? { ...user, isBlocked: true } : user
+    )
+  })),
+
+  unblockUser: (userId) => set((state) => ({
+    users: state.users.map(user =>
+      user.id === userId ? { ...user, isBlocked: false } : user
+    )
+  })),
+
+  deleteUser: (userId) => set((state) => ({
+    users: state.users.filter(user => user.id !== userId)
+  })),
+
+  // Trip management
+  deleteTrip: (tripId) => set((state) => ({
+    trips: state.trips.filter(trip => trip.id !== tripId)
+  })),
+
+  updateTripStatus: (tripId, status) => set((state) => ({
+    trips: state.trips.map(trip =>
+      trip.id === tripId ? { ...trip, status } : trip
+    )
+  })),
+
+  // Data fetching with API calls
+  fetchStats: async () => {
+    const { setLoading, setStats } = get();
+    setLoading('stats', true);
+    
     try {
-      set({ loading: true });
-      const updatedUser = await adminApi.blockUser(userId, reason);
-      
-      set((state) => ({
-        customers: state.customers.map((customer) =>
-          customer.id === userId 
-            ? { ...customer, ...updatedUser }
-            : customer
-        ),
-        loading: false
-      }));
+      const response = await fetch('/api/admin/stats');
+      const data = await response.json();
+      setStats(data);
     } catch (error) {
-      set({ loading: false });
-      console.error('Failed to block user:', error);
-      throw error;
+      console.error('Failed to fetch stats:', error);
+    } finally {
+      setLoading('stats', false);
     }
   },
 
-  unblockUser: async (userId: string) => {
+  fetchUsers: async () => {
+    const { setLoading, setUsers } = get();
+    setLoading('users', true);
+    
     try {
-      set({ loading: true });
-      const updatedUser = await adminApi.unblockUser(userId);
-      
-      set((state) => ({
-        customers: state.customers.map((customer) =>
-          customer.id === userId 
-            ? { ...customer, ...updatedUser }
-            : customer
-        ),
-        loading: false
-      }));
+      const response = await fetch('/api/admin/users');
+      const data = await response.json();
+      setUsers(data);
     } catch (error) {
-      set({ loading: false });
-      console.error('Failed to unblock user:', error);
-      throw error;
+      console.error('Failed to fetch users:', error);
+    } finally {
+      setLoading('users', false);
     }
   },
 
-  // Add method to fetch customers from API
-  fetchCustomers: async (filters?: { status?: string; search?: string }) => {
+  fetchBookings: async () => {
+    const { setLoading, setBookings } = get();
+    setLoading('bookings', true);
+    
     try {
-      set({ loading: true });
-      const customers = await adminApi.getCustomers(filters);
-      set({ customers, loading: false });
+      const response = await fetch('/api/admin/bookings');
+      const data = await response.json();
+      setBookings(data);
     } catch (error) {
-      set({ loading: false });
-      console.error('Failed to fetch customers:', error);
-      throw error;
+      console.error('Failed to fetch bookings:', error);
+    } finally {
+      setLoading('bookings', false);
+    }
+  },
+
+  fetchTrips: async () => {
+    const { setLoading, setTrips } = get();
+    setLoading('trips', true);
+    
+    try {
+      const response = await fetch('/api/admin/trips');
+      const data = await response.json();
+      setTrips(data);
+    } catch (error) {
+      console.error('Failed to fetch trips:', error);
+    } finally {
+      setLoading('trips', false);
+    }
+  },
+
+  fetchPayments: async () => {
+    const { setLoading, setPayments } = get();
+    setLoading('payments', true);
+    
+    try {
+      const response = await fetch('/api/admin/payments');
+      const data = await response.json();
+      setPayments(data);
+    } catch (error) {
+      console.error('Failed to fetch payments:', error);
+    } finally {
+      setLoading('payments', false);
     }
   },
 }));

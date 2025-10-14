@@ -1,63 +1,102 @@
 "use client";
-import { useState } from "react";
-import Image from "next/image";
+import { useState, useRef } from 'react';
 
 interface ImageUploadFieldProps {
-  imageUrl: string;
-  onImageUrlChange: (value: string) => void;
+  value: string;
+  onChange: (value: string) => void;
+  label?: string;
+  placeholder?: string;
+  error?: string;
 }
 
-export default function ImageUploadField({ imageUrl, onImageUrlChange }: ImageUploadFieldProps) {
-  const [imagePreview, setImagePreview] = useState<string>(imageUrl);
+export default function ImageUploadField({
+  value,
+  onChange,
+  label = 'Trip Image',
+  placeholder = 'Enter image URL or upload an image',
+  error
+}: ImageUploadFieldProps) {
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
     if (!file) return;
-    
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const base64String = reader.result as string;
-      onImageUrlChange(base64String);
-      setImagePreview(base64String);
-    };
-    reader.readAsDataURL(file);
+
+    setIsUploading(true);
+    try {
+      // Convert file to base64 for demo purposes
+      // In production, you'd upload to a cloud service
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const result = e.target?.result as string;
+        onChange(result);
+        setIsUploading(false);
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      setIsUploading(false);
+    }
+  };
+
+  const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onChange(e.target.value);
   };
 
   return (
-    <div className="space-y-3">
-      <input
-        type="text"
-        value={imageUrl}
-        onChange={(e) => {
-          onImageUrlChange(e.target.value);
-          setImagePreview(e.target.value);
-        }}
-        placeholder="Enter image URL"
-        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-      />
+    <div className="space-y-2">
+      <label className="block text-sm font-medium text-gray-700">
+        {label}
+      </label>
       
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Or upload an image
-        </label>
+      <div className="space-y-3">
+        {/* URL Input */}
         <input
-          type="file"
-          accept="image/*"
-          onChange={handleFileUpload}
-          className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+          type="url"
+          value={value}
+          onChange={handleUrlChange}
+          placeholder={placeholder}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
-      </div>
-
-      {imagePreview && (
-        <div className="mt-2">
-          <Image 
-            src={imagePreview} 
-            alt="Preview" 
-            width={300} 
-            height={200} 
-            className="rounded-lg border border-gray-300 object-cover"
+        
+        {/* File Upload */}
+        <div className="flex items-center space-x-3">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleFileUpload}
+            className="hidden"
           />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploading}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {isUploading ? 'Uploading...' : 'Upload Image'}
+          </button>
+          <span className="text-sm text-gray-500">or paste image URL above</span>
         </div>
+        
+        {/* Image Preview */}
+        {value && (
+          <div className="mt-3">
+            <img
+              src={value}
+              alt="Preview"
+              className="w-full h-32 object-cover rounded-lg border border-gray-200"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+              }}
+            />
+          </div>
+        )}
+      </div>
+      
+      {error && (
+        <p className="text-sm text-red-600">{error}</p>
       )}
     </div>
   );

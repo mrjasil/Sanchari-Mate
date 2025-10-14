@@ -36,88 +36,110 @@ const mockUsers = [
   }
 ];
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+interface AuthProviderProps {
+  children: ReactNode;
+}
+
+export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     // Check if we're in browser environment
-    if (typeof window !== 'undefined') {
-      const savedUser = localStorage.getItem('currentUser');
-      if (savedUser) {
-        try {
-          setUser(JSON.parse(savedUser));
-        } catch (error) {
-          console.error('Error parsing saved user:', error);
-          localStorage.removeItem('currentUser');
+    const initializeAuth = () => {
+      try {
+        const savedUser = localStorage.getItem('currentUser');
+        if (savedUser) {
+          const userData = JSON.parse(savedUser);
+          setUser(userData);
         }
+      } catch (error) {
+        console.error('Error initializing auth:', error);
+        localStorage.removeItem('currentUser');
+      } finally {
+        setIsLoading(false);
       }
+    };
+
+    if (typeof window !== 'undefined') {
+      initializeAuth();
+    } else {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   }, []);
 
   const login = async (email: string, password: string): Promise<boolean> => {
     setIsLoading(true);
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    try {
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      const foundUser = mockUsers.find(u => u.email === email && u.password === password);
+      
+      if (foundUser) {
+        const userData: User = {
+          id: foundUser.id,
+          name: foundUser.name,
+          email: foundUser.email
+        };
+        
+        setUser(userData);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('currentUser', JSON.stringify(userData));
+        }
+        return true;
+      }
+      
+      return false;
+    } catch (error) {
+      console.error('Login error:', error);
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const register = async (name: string, email: string, password: string): Promise<boolean> => {
+    setIsLoading(true);
     
-    const foundUser = mockUsers.find(u => u.email === email && u.password === password);
-    
-    if (foundUser) {
+    try {
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Check if user already exists
+      const userExists = mockUsers.find(u => u.email === email);
+      if (userExists) {
+        return false;
+      }
+      
+      // Create new user
+      const newUser = {
+        id: Date.now().toString(),
+        name,
+        email,
+        password
+      };
+      
+      mockUsers.push(newUser);
+      
       const userData: User = {
-        id: foundUser.id,
-        name: foundUser.name,
-        email: foundUser.email
+        id: newUser.id,
+        name: newUser.name,
+        email: newUser.email
       };
       
       setUser(userData);
       if (typeof window !== 'undefined') {
         localStorage.setItem('currentUser', JSON.stringify(userData));
       }
-      setIsLoading(false);
       return true;
-    }
-    
-    setIsLoading(false);
-    return false;
-  };
-
-  const register = async (name: string, email: string, password: string): Promise<boolean> => {
-    setIsLoading(true);
-    
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Check if user already exists
-    const userExists = mockUsers.find(u => u.email === email);
-    if (userExists) {
-      setIsLoading(false);
+    } catch (error) {
+      console.error('Registration error:', error);
       return false;
+    } finally {
+      setIsLoading(false);
     }
-    
-    // Create new user
-    const newUser = {
-      id: Date.now().toString(),
-      name,
-      email,
-      password
-    };
-    
-    mockUsers.push(newUser);
-    
-    const userData: User = {
-      id: newUser.id,
-      name: newUser.name,
-      email: newUser.email
-    };
-    
-    setUser(userData);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('currentUser', JSON.stringify(userData));
-    }
-    setIsLoading(false);
-    return true;
   };
 
   const logout = () => {
@@ -143,13 +165,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export function useAuth() {
+export function useAuth(): AuthContextType {
   const context = useContext(AuthContext);
+  
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error(
+      'useAuth must be used within an AuthProvider. ' +
+      'Make sure you have wrapped your application or component with <AuthProvider>.'
+    );
   }
+  
   return context;
 }
-
-
-

@@ -15,6 +15,7 @@ export interface ChatMessage {
   timestamp: string;
   read: boolean;
   type: 'text' | 'image' | 'file';
+  sessionId: string; 
 }
 
 export interface ChatRequest {
@@ -26,6 +27,7 @@ export interface ChatRequest {
   requestedAt: string;
   approvedAt?: string;
   adminId?: string;
+  disable?:boolean;
 }
 
 export interface ChatSession {

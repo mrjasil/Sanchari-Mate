@@ -1,10 +1,26 @@
 'use client';
 import { useAdmin } from '@/store/AdminContext';
 import { useState } from 'react';
+import { showConfirmDialog } from '@/lib/alertService';
 
 export default function AdminHeader() {
-  const { admin, logout } = useAdmin();
+  const adminContext = useAdmin();
+  const admin = (adminContext as any).admin; // workaround for missing 'admin' property in type
+  const logout = adminContext.logout;
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+  const handleLogout = async () => {
+    const result = await showConfirmDialog(
+      'Confirm Logout',
+      'Are you sure you want to logout? You will need to login again to access the admin panel.',
+      'Yes, Logout',
+      'Cancel'
+    );
+
+    if (result.isConfirmed) {
+      logout();
+    }
+  };
 
   return (
     <header className="bg-gradient-to-r from-indigo-600 to-purple-600 shadow-xl">
@@ -98,7 +114,7 @@ export default function AdminHeader() {
                   {/* Logout Button */}
                   <div className="border-t border-gray-100 pt-2">
                     <button
-                      onClick={logout}
+                      onClick={handleLogout}
                       className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors group"
                     >
                       <svg className="w-4 h-4 mr-3 text-red-500 group-hover:text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">

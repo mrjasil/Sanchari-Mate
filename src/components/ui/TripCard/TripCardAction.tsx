@@ -3,6 +3,8 @@ import { Trip } from "@/types/Trip";
 import Link from "next/link";
 import { useState } from "react";
 import { useAlert } from "@/hooks/useAlert";
+import { getSeatAvailability } from "./utils/seats";
+import { usePayment } from "./hooks/usePayment";
 
 interface TripCardActionsProps {
   trip: Trip;
@@ -20,23 +22,9 @@ interface TripCardActionsProps {
   onJoinError?: (error: string) => void;
 }
 
-// Razorpay type declaration
 declare global {
-  interface Window {
-    Razorpay: any;
-  }
+  interface Window { Razorpay: any; }
 }
-
-const getSeatAvailability = (trip: Trip) => {
-  const maxParticipants = trip.maxParticipants || 0;
-  const currentParticipants = trip.currentParticipants || 0;
-  const availableSeats = maxParticipants - currentParticipants;
-  
-  return {
-    available: availableSeats,
-    isFull: availableSeats <= 0
-  };
-};
 
 export default function TripCardActions({
   trip,
@@ -56,14 +44,23 @@ export default function TripCardActions({
   const [paymentLoading, setPaymentLoading] = useState(false);
   const seats = getSeatAvailability(trip);
   const alert = useAlert();
+  const { loading: gatewayLoading, startPayment } = usePayment();
+
+  const clearLoadingStates = () => {
+    setPaymentLoading(false);
+    onJoinLoadingChange(false);
+  };
+
+  const handleSeatFullError = async () => {
+    await alert.error('Trip Full', 'This trip is full. No seats available.');
+    onJoinError?.('This trip is full. No seats available.');
+  };
 
   const handleJoinWithPayment = async () => {
     if (!onJoin) return;
 
-    // Check seat availability before proceeding
     if (seats.isFull) {
-      await alert.error('Trip Full', 'This trip is full. No seats available.');
-      onJoinError?.('This trip is full. No seats available.');
+      await handleSeatFullError();
       return;
     }
 
@@ -71,11 +68,9 @@ export default function TripCardActions({
     onJoinLoadingChange(true);
 
     try {
-      // Calculate 20% of the budget
-      const paymentAmount = Math.round(trip.budget! * 0.2 * 100); // Convert to paise
+      const paymentAmount = Math.round(trip.budget! * 0.2 * 100);
       const displayAmount = (paymentAmount / 100).toFixed(2);
 
-      // Show payment confirmation
       const paymentConfirm = await alert.confirm(
         'Confirm Payment',
         `You are about to pay ₹${displayAmount} (20% advance) to join "${trip.title}". Continue?`,
@@ -84,79 +79,30 @@ export default function TripCardActions({
       );
 
       if (!paymentConfirm.isConfirmed) {
-        setPaymentLoading(false);
-        onJoinLoadingChange(false);
+        clearLoadingStates();
         return;
       }
 
-      // Initialize Razorpay payment
-      const options = {
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-        amount: paymentAmount,
-        currency: "INR",
-        name: "Travel Agency",
-        description: `20% advance for ${trip.title}`,
-        image: "/logo.png",
-        handler: async function (response: any) {
-          try {
-            const loadingAlert = await alert.loading('Completing your booking...');
-            await onJoin(trip);
-            await alert.close();
-            await alert.paymentSuccess(
-              parseFloat(displayAmount),
-              `You have successfully joined ${trip.title}`
-            );
-          } catch (error: any) {
-            console.error('Failed to join trip after payment:', error);
-            await alert.error(
-              'Booking Failed',
-              error.message || 'Failed to complete booking after payment. Please contact support.'
-            );
-            onJoinError?.(error.message || 'Failed to join trip after payment');
-          }
-        },
-        prefill: {
-          name: "Customer Name",
-          email: "customer@example.com",
-          contact: "9999999999"
-        },
-        notes: {
-          tripId: trip.id,
-          tripTitle: trip.title
-        },
-        theme: {
-          color: "#4F46E5"
-        }
-      };
-
-      const razorpay = new window.Razorpay(options);
-      
-      razorpay.on('payment.failed', async function (response: any) {
-        const errorMessage = `Payment failed: ${response.error.description}`;
-        await alert.error('Payment Failed', errorMessage);
-        onJoinError?.(errorMessage);
-        setPaymentLoading(false);
-        onJoinLoadingChange(false);
-      });
-
-      razorpay.open();
+      await startPayment(
+        trip,
+        paymentAmount,
+        async () => { await onJoin?.(trip); },
+        (msg) => onJoinError?.(msg)
+      );
       
     } catch (error: any) {
       console.error('Payment initialization failed:', error);
       await alert.error('Payment Error', error.message || 'Failed to initialize payment gateway');
       onJoinError?.(error.message || 'Failed to initialize payment');
-      setPaymentLoading(false);
-      onJoinLoadingChange(false);
+      clearLoadingStates();
     }
   };
 
   const handleDirectJoin = async () => {
     if (!onJoin) return;
     
-    // Check seat availability before proceeding
     if (seats.isFull) {
-      await alert.error('Trip Full', 'This trip is full. No seats available.');
-      onJoinError?.('This trip is full. No seats available.');
+      await handleSeatFullError();
       return;
     }
 
@@ -167,13 +113,11 @@ export default function TripCardActions({
       'Cancel'
     );
 
-    if (!confirmJoin.isConfirmed) {
-      return;
-    }
+    if (!confirmJoin.isConfirmed) return;
 
     onJoinLoadingChange(true);
     try {
-      const loadingAlert = await alert.loading('Joining trip...');
+      await alert.loading('Completing your booking...');
       await onJoin(trip);
       await alert.close();
       await alert.success(
@@ -191,8 +135,7 @@ export default function TripCardActions({
 
   const handleJoinClick = async () => {
     if (seats.isFull) {
-      await alert.error('Trip Full', 'This trip is full. No seats available.');
-      onJoinError?.('This trip is full. No seats available.');
+      await handleSeatFullError();
       return;
     }
 
@@ -204,46 +147,40 @@ export default function TripCardActions({
       }
     } catch (error) {
       console.error('Error in join process:', error);
+      clearLoadingStates();
     }
   };
 
   const handleDeleteClick = async () => {
     if (!onDelete) return;
-
     const confirmDelete = await alert.deleteConfirm('this trip');
-    if (confirmDelete.isConfirmed) {
-      onDelete(trip.id);
-    }
+    if (confirmDelete.isConfirmed) onDelete(trip.id);
   };
 
   const handleEditClick = () => {
     if (!onEdit) return;
     
-    // Optional: Add confirmation if there are participants
     if (trip.currentParticipants && trip.currentParticipants > 0) {
       alert.warning(
         'Edit Trip with Participants',
         'This trip already has participants. Changes may affect existing bookings.'
-      ).then(() => {
-        onEdit(trip.id);
-      });
+      ).then(() => onEdit(trip.id));
     } else {
       onEdit(trip.id);
     }
   };
 
-  const isLoading = joinLoading || paymentLoading;
+  const isLoading = joinLoading || paymentLoading || gatewayLoading;
   const canJoin = showJoinButton && !shouldShowActions && onJoin && !userAlreadyJoined && !seats.isFull;
 
   return (
     <div className="px-6 pb-6 pt-4 bg-gray-50 border-t border-gray-100">
       <div className="space-y-3">
-        {/* Edit/Delete Buttons (for trip owner) */}
         {shouldShowActions && (showEditButton || showDeleteButton) && (
           <div className="flex space-x-3">
             {showEditButton && (
-              <button
-                onClick={handleEditClick}
+              <button 
+                onClick={handleEditClick} 
                 className="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white py-3 px-4 rounded-xl text-sm font-semibold hover:from-blue-600 hover:to-blue-700 transition-all duration-200 flex items-center justify-center shadow-md hover:shadow-lg"
               >
                 <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -252,10 +189,9 @@ export default function TripCardActions({
                 Edit Trip
               </button>
             )}
-            
             {showDeleteButton && (
-              <button
-                onClick={handleDeleteClick}
+              <button 
+                onClick={handleDeleteClick} 
                 className="flex-1 bg-gradient-to-r from-red-500 to-red-600 text-white py-3 px-4 rounded-xl text-sm font-semibold hover:from-red-600 hover:to-red-700 transition-all duration-200 flex items-center justify-center shadow-md hover:shadow-lg"
               >
                 <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -267,13 +203,11 @@ export default function TripCardActions({
           </div>
         )}
 
-        {/* Join Button (for other users) */}
         {showJoinButton && !shouldShowActions && onJoin && (
           <>
             {seats.isFull ? (
-              // Full trip - show disabled button
-              <button
-                disabled
+              <button 
+                disabled 
                 className="w-full bg-gray-400 text-white py-3 px-4 rounded-xl text-sm font-semibold cursor-not-allowed flex items-center justify-center shadow-md"
               >
                 <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -282,9 +216,8 @@ export default function TripCardActions({
                 Trip Full
               </button>
             ) : userAlreadyJoined ? (
-              // Already joined - show disabled button
-              <button
-                disabled
+              <button 
+                disabled 
                 className="w-full bg-gray-400 text-white py-3 px-4 rounded-xl text-sm font-semibold cursor-not-allowed flex items-center justify-center shadow-md"
               >
                 <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -293,13 +226,12 @@ export default function TripCardActions({
                 Already Joined
               </button>
             ) : (
-              // Available to join - show active button
-              <button
-                onClick={handleJoinClick}
+              <button 
+                onClick={handleJoinClick} 
                 disabled={isLoading}
                 className={`w-full py-3 px-4 rounded-xl text-sm font-semibold transition-all duration-200 flex items-center justify-center shadow-md hover:shadow-lg ${
-                  isLoading
-                    ? 'bg-gradient-to-r from-green-400 to-green-500 text-white cursor-not-allowed'
+                  isLoading 
+                    ? 'bg-gradient-to-r from-green-400 to-green-500 text-white cursor-not-allowed' 
                     : 'bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700'
                 }`}
               >
@@ -328,23 +260,20 @@ export default function TripCardActions({
           </>
         )}
 
-        {/* Payment Required Message */}
         {canJoin && trip.budget && !isLoading && (
           <p className="text-xs text-center text-gray-500 mt-2">
             💳 20% advance payment (₹{(trip.budget * 0.2).toFixed(2)}) required to join this trip
           </p>
         )}
 
-        {/* Seat Availability Message */}
         {showJoinButton && !shouldShowActions && seats.available > 0 && seats.available <= 3 && (
           <p className="text-xs text-center text-orange-600 font-medium mt-2">
             ⚠️ Only {seats.available} seat{seats.available !== 1 ? 's' : ''} left!
           </p>
         )}
 
-        {/* View Details Button - Always visible when enabled */}
         {showViewDetailsButton && (
-          <Link
+          <Link 
             href={`/trips/${trip.id}`}
             className="block w-full bg-gradient-to-r from-gray-600 to-gray-700 text-white py-3 px-4 rounded-xl text-sm font-semibold hover:from-gray-700 hover:to-gray-800 transition-all duration-200 text-center items-center justify-center shadow-md hover:shadow-lg"
           >

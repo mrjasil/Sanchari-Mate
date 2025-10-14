@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { Memory, Review } from '@/types/memory';
-import { useAuth } from '@/lib/auth';
 import MemoryCard from './MemoryCard';
 import AddMemoryModal from './AddMemoryModal';
 import Link from 'next/link';
@@ -10,39 +9,27 @@ import Link from 'next/link';
 export default function MemoryGrid() {
   const [memories, setMemories] = useState<Memory[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const { user, isAuthenticated, logout } = useAuth();
 
-  const handleAddMemory = (memoryData: Omit<Memory, 'id' | 'reviews' | 'likes'>) => {
-    if (!isAuthenticated || !user) return;
-
+  const handleAddMemory = (memoryData: Omit<Memory, 'id' | 'reviews' | 'likes' | 'createdAt'>) => {
     const newMemory: Memory = {
       ...memoryData,
       id: Date.now().toString(),
       reviews: [],
       likes: [],
-      userId: user.id,
-      userName: user.name
+      createdAt: new Date().toISOString(),
+      userId: 'user-1', // Default user ID since no auth
+      userName: 'Traveler' // Default username
     };
     setMemories(prev => [newMemory, ...prev]);
   };
 
   const handleDeleteMemory = (id: string) => {
-    if (!isAuthenticated || !user) return;
-
-    const memory = memories.find(m => m.id === id);
-    if (memory && memory.userId !== user.id) {
-      alert('You can only delete your own memories');
-      return;
-    }
-
     if (confirm('Are you sure you want to delete this memory?')) {
       setMemories(prev => prev.filter(memory => memory.id !== id));
     }
   };
 
   const handleAddReview = (memoryId: string, reviewData: Omit<Review, 'id' | 'date'>) => {
-    if (!isAuthenticated || !user) return;
-
     const newReview: Review = {
       ...reviewData,
       id: Date.now().toString(),
@@ -59,7 +46,7 @@ export default function MemoryGrid() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50/30 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header with Auth Info */}
+        {/* Header */}
         <div className="text-center mb-12">
           <div className="flex items-center justify-between mb-8">
             <Link 
@@ -71,76 +58,41 @@ export default function MemoryGrid() {
               </svg>
               Back to Home
             </Link>
-            
-            {isAuthenticated ? (
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-2xl shadow-sm border border-gray-100">
-                  <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
-                    {(user?.name || 'U').charAt(0).toUpperCase()}
-                  </div>
-                  <span className="text-sm font-medium text-gray-700">Hi, {user?.name || 'User'}</span>
-                </div>
-                <button
-                  onClick={logout}
-                  className="text-sm text-gray-500 hover:text-gray-700 px-3 py-1 hover:bg-gray-100 rounded-xl transition-colors"
-                >
-                  Logout
-                </button>
-              </div>
-            ) : (
-              <Link
-                href="/login"
-                className="bg-blue-500 text-white px-6 py-2 rounded-2xl hover:bg-blue-600 transition-colors font-medium text-sm"
-              >
-                Sign In
-              </Link>
-            )}
           </div>
 
           <h1 className="text-5xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-4">
-            Memories
+            Travel Memories
           </h1>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed">
-            Photos and notes from your trips. Capture every special moment and revisit your adventures.
+            Capture and share your travel experiences with photos, videos, and notes. Relive your adventures and inspire others.
           </p>
           
-          {/* Auth Status */}
-          <div className="mt-4">
-            {isAuthenticated ? (
-              <div className="inline-flex items-center gap-2 bg-green-100 text-green-800 px-4 py-2 rounded-full text-sm">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                Logged in as {user?.name || 'User'}
-              </div>
-            ) : (
-              <div className="inline-flex items-center gap-2 bg-yellow-100 text-yellow-800 px-4 py-2 rounded-full text-sm">
-                <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                Please login to upload memories and add reviews
-              </div>
-            )}
+          {/* Welcome Message */}
+          <div className="mt-4 inline-flex items-center gap-2 bg-green-100 text-green-800 px-4 py-2 rounded-full text-sm">
+            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+            Share your travel memories with everyone!
           </div>
         </div>
 
-        {/* Add Memory Button - Only show if authenticated */}
-        {isAuthenticated && (
-          <div className="flex justify-center mb-12">
-            <button
-              onClick={() => setIsModalOpen(true)}
-              className="group bg-white rounded-2xl shadow-lg shadow-gray-200/50 border border-gray-100 px-8 py-4 hover:shadow-xl hover:shadow-blue-200/30 transition-all duration-300 hover:scale-105"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                </div>
-                <div className="text-left">
-                  <div className="font-semibold text-gray-900 text-lg">Add New Memory</div>
-                  <div className="text-gray-500 text-sm">Upload photos from your trips</div>
-                </div>
+        {/* Add Memory Button - Always show since no auth */}
+        <div className="flex justify-center mb-12">
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="group bg-white rounded-2xl shadow-lg shadow-gray-200/50 border border-gray-100 px-8 py-4 hover:shadow-xl hover:shadow-blue-200/30 transition-all duration-300 hover:scale-105"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
               </div>
-            </button>
-          </div>
-        )}
+              <div className="text-left">
+                <div className="font-semibold text-gray-900 text-lg">Share New Memory</div>
+                <div className="text-gray-500 text-sm">Upload photos, videos, or add notes from your trips</div>
+              </div>
+            </div>
+          </button>
+        </div>
 
         {/* Memories Grid */}
         {memories.length > 0 ? (
@@ -163,34 +115,21 @@ export default function MemoryGrid() {
               </svg>
             </div>
             <h3 className="text-2xl font-semibold text-gray-900 mb-3">
-              {isAuthenticated ? 'No memories yet' : 'Welcome to Memories'}
+              No memories yet
             </h3>
             <p className="text-gray-600 max-w-md mx-auto mb-8">
-              {isAuthenticated 
-                ? 'Start capturing your travel moments! Add your first memory by clicking the button above.'
-                : 'Please login to start sharing your travel memories and experiences.'
-              }
+              Start sharing your travel moments! Add your first memory with photos, videos, or notes.
             </p>
-            {!isAuthenticated && (
-              <Link
-                href="/login"
-                className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-8 py-3 rounded-2xl hover:from-blue-600 hover:to-purple-700 transition-all shadow-lg shadow-blue-500/25 font-medium inline-block"
-              >
-                Sign In to Get Started
-              </Link>
-            )}
           </div>
         )}
       </div>
 
-      {/* Add Memory Modal - Protected */}
-      {isAuthenticated && (
-        <AddMemoryModal
-          isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
-          onSave={handleAddMemory}
-        />
-      )}
+      {/* Add Memory Modal */}
+      <AddMemoryModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSave={handleAddMemory}
+      />
     </div>
   );
 }

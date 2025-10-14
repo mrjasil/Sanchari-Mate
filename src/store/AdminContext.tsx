@@ -1,17 +1,18 @@
-// store/AdminContext.tsx
 'use client';
-import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
 interface AdminUser {
   id: string;
-  email: string;
   name: string;
-  profilePic?: string;
+  email: string;
+  role: string;
+  lastLogin: string;
 }
 
 interface AdminContextType {
   isAdmin: boolean;
-  admin: AdminUser | null;
+  adminUser: AdminUser | null;
+  admin: AdminUser | null; // Add this for compatibility
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
   isInitialized: boolean;
@@ -19,125 +20,148 @@ interface AdminContextType {
 
 const AdminContext = createContext<AdminContextType | undefined>(undefined);
 
-export function AdminProvider({ children }: { children: ReactNode }) {
+// Mock admin credentials
+const ADMIN_CREDENTIALS = {
+  email: 'admin@sanchari.com',
+  password: 'admin123'
+};
+
+export const AdminProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [isAdmin, setIsAdmin] = useState(false);
-  const [admin, setAdmin] = useState<AdminUser | null>(null);
+  const [adminUser, setAdminUser] = useState<AdminUser | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
 
-  // Initialize on client side only to prevent hydration mismatch
   useEffect(() => {
-    // Check for existing admin session in localStorage or sessionStorage
-    const checkExistingSession = () => {
+    // Check if admin is logged in on component mount
+    const checkAdminStatus = () => {
       try {
-        const storedAdmin = localStorage.getItem('admin_session');
-        if (storedAdmin) {
-          const adminData = JSON.parse(storedAdmin);
-          setIsAdmin(true);
-          setAdmin(adminData);
+        const adminData = localStorage.getItem('adminData');
+        if (adminData) {
+          const { user, timestamp } = JSON.parse(adminData);
+          // Check if login is still valid (24 hours)
+          const isExpired = Date.now() - timestamp > 24 * 60 * 60 * 1000;
+          if (!isExpired) {
+            setAdminUser(user);
+            setIsAdmin(true);
+          } else {
+            localStorage.removeItem('adminData');
+          }
         }
       } catch (error) {
-        console.log('No existing admin session found');
+        console.error('Error checking admin status:', error);
+        localStorage.removeItem('adminData');
       } finally {
         setIsInitialized(true);
       }
     };
 
-    checkExistingSession();
+    checkAdminStatus();
   }, []);
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
       console.log('Making login API call...');
       
-      const response = await fetch('/api/admin/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      });
-
-      console.log('Login response status:', response.status);
+      // Try the API first
+      let apiSuccess = false;
+      let apiUser: AdminUser | null = null;
       
-      const data = await response.json();
-      console.log('Login response data:', data);
+      try {
+        const response = await fetch('/api/admin/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email, password }),
+        });
 
-      if (response.ok && data.success) {
-        setIsAdmin(true);
+        console.log('Login response status:', response.status);
         
-        // Set admin user data if available from API response
-        let adminData: AdminUser;
-        if (data.user) {
-          adminData = {
-            id: data.user.id,
-            email: data.user.email,
-            name: data.user.name || `${data.user.firstName} ${data.user.lastName}`,
-            profilePic: data.user.profilePic
-          };
+        if (response.ok) {
+          const data = await response.json();
+          console.log('Login API response:', data);
+          
+          if (data.success && data.user) {
+            apiSuccess = true;
+            apiUser = data.user;
+          }
         } else {
-          // Fallback admin data
-          adminData = {
-            id: 'admin_001',
-            email: email,
-            name: 'Admin User',
-            profilePic: '/images/admin-avatar.jpg'
-          };
+          console.warn('API login failed with status:', response.status);
         }
-        
-        setAdmin(adminData);
-        
-        // Store session in localStorage for persistence
-        try {
-          localStorage.setItem('admin_session', JSON.stringify(adminData));
-        } catch (storageError) {
-          console.warn('Could not store admin session in localStorage:', storageError);
-        }
-        
+      } catch (apiError) {
+        console.warn('API call failed, using fallback authentication:', apiError);
+      }
+
+      // If API worked, use API response
+      if (apiSuccess && apiUser) {
+        const adminData = {
+          user: apiUser,
+          timestamp: Date.now()
+        };
+        localStorage.setItem('adminData', JSON.stringify(adminData));
+        setAdminUser(apiUser);
+        setIsAdmin(true);
         return true;
       }
+
+      // Fallback: Check against hardcoded credentials
+      console.log('Using fallback authentication...');
+      
+      if (email === ADMIN_CREDENTIALS.email && password === ADMIN_CREDENTIALS.password) {
+        const fallbackUser: AdminUser = {
+          id: '1',
+          name: 'Admin User',
+          email: ADMIN_CREDENTIALS.email,
+          role: 'admin',
+          lastLogin: new Date().toISOString(),
+        };
+        
+        const adminData = {
+          user: fallbackUser,
+          timestamp: Date.now()
+        };
+        localStorage.setItem('adminData', JSON.stringify(adminData));
+        
+        setAdminUser(fallbackUser);
+        setIsAdmin(true);
+        return true;
+      }
+      
+      console.error('Login failed: Invalid credentials');
       return false;
+      
     } catch (error) {
-      console.error('Login API error:', error);
+      console.error('Login process error:', error);
       return false;
     }
   };
 
   const logout = () => {
+    localStorage.removeItem('adminData');
+    setAdminUser(null);
     setIsAdmin(false);
-    setAdmin(null);
-    
-    // Clear session from storage
-    try {
-      localStorage.removeItem('admin_session');
-      sessionStorage.removeItem('admin_session');
-    } catch (storageError) {
-      console.warn('Could not clear admin session from storage:', storageError);
-    }
+    // Redirect to admin login page
+    window.location.href = '/adminlogin';
   };
 
-  // Don't render children until context is initialized to prevent hydration mismatch
-  if (!isInitialized) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-4 border-indigo-600 border-t-transparent mx-auto mb-4"></div>
-          <p className="text-gray-600">Initializing Admin Panel...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <AdminContext.Provider value={{ isAdmin, admin, login, logout, isInitialized }}>
+    <AdminContext.Provider value={{ 
+      isAdmin, 
+      adminUser, 
+      admin: adminUser, // Add this for compatibility
+      login, 
+      logout, 
+      isInitialized 
+    }}>
       {children}
     </AdminContext.Provider>
   );
-}
+};
 
-export function useAdmin() {
+export const useAdmin = () => {
   const context = useContext(AdminContext);
   if (context === undefined) {
     throw new Error('useAdmin must be used within an AdminProvider');
   }
   return context;
-}
+};

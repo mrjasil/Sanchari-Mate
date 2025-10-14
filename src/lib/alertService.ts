@@ -129,3 +129,4 @@ export const showLoadingAlert = (title: string = 'Loading...') => {
 export const closeAlert = () => {
   Swal.close();
 };
+

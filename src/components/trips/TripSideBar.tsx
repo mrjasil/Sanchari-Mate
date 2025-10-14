@@ -34,8 +34,6 @@ export default function TripSidebar({ trip }: TripSidebarProps) {
       </div>
 
       {trip.tags?.length > 0 && <TripTags tags={trip.tags} />}
-      
-      <ShareTripSection />
     </>
   );
 }
@@ -55,22 +53,6 @@ function SummaryItem({
       <span className={`font-medium ${highlight ? (value.includes('0 of') ? 'text-red-600' : 'text-green-600') : ''}`}>
         {value}
       </span>
-    </div>
-  );
-}
-
-function ShareTripSection() {
-  return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-      <h3 className="text-lg font-bold text-gray-900 mb-4">Share This Trip</h3>
-      <div className="flex space-x-3">
-        <button className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm">
-          Share
-        </button>
-        <button className="flex-1 bg-gray-600 text-white py-2 rounded-lg hover:bg-gray-700 transition-colors text-sm">
-          Copy Link
-        </button>
-      </div>
     </div>
   );
 }

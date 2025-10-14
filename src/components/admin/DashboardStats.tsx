@@ -1,140 +1,103 @@
 'use client';
-import { useState, useEffect } from 'react';
-import type { DashboardStats as DashboardStatsType } from '@/types/admin';
+import { useEffect } from 'react';
+import { useAdminStore } from '@/store/adminStore';
+import StatsCard from './StatsCard';
 
-interface DashboardStatsProps {
-  stats?: DashboardStatsType;
-}
+// Ultra-safe default values
+const ultraSafeStats = {
+  revenue: {
+    current: 0,
+    previous: 0,
+    change: 0
+  },
+  newBookings: {
+    current: 0,
+    previous: 0,
+    change: 0
+  },
+  totalCustomers: 0,
+  pendingEnquiries: 0,
+  totalTrips: 0
+};
 
-export default function DashboardStats({ stats: statsProp }: DashboardStatsProps) {
-  const [stats, setStats] = useState<DashboardStatsType>(
-    statsProp || {
-      totalSales: 0,
-      newBookings: 0,
-      totalCustomers: 0,
-      pendingEnquiries: 0,
-    }
-  );
+export default function DashboardStats() {
+  const { stats, loading, fetchStats } = useAdminStore();
 
   useEffect(() => {
-    if (statsProp) {
-      setStats(statsProp);
-      return;
-    }
-    // Fallback demo data when no props provided
-    setStats({
-      totalSales: 89234,
-      newBookings: 1247,
-      totalCustomers: 845,
-      pendingEnquiries: 12,
-    });
-  }, [statsProp]);
+    fetchStats();
+  }, [fetchStats]);
 
-  const statCards = [
-    {
-      title: 'Total Sales',
-      value: `₹${stats.totalSales.toLocaleString()}`,
-      icon: '💰',
-      color: 'green',
-      change: '+8%',
-    },
-    {
-      title: 'New Bookings',
-      value: stats.newBookings,
-      icon: '📅',
-      color: 'blue',
-      change: '+12%',
-    },
-    {
-      title: 'Total Customers',
-      value: stats.totalCustomers,
-      icon: '👥',
-      color: 'orange',
-      change: '+15%',
-    },
-    {
-      title: 'Pending Enquiries',
-      value: stats.pendingEnquiries,
-      icon: '📧',
-      color: 'purple',
-      change: '+5%',
-    },
-  ];
+  // Ultra-safe stats with deep fallbacks
+  const safeStats = stats || ultraSafeStats;
+  const safeRevenue = safeStats.revenue || ultraSafeStats.revenue;
+  const safeNewBookings = safeStats.newBookings || ultraSafeStats.newBookings;
+
+  if (loading.stats) {
+    return (
+      <div className="space-y-6">
+        {/* Stats Grid Skeleton */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 animate-pulse">
+              <div className="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
+              <div className="h-8 bg-gray-200 rounded w-3/4 mb-2"></div>
+              <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+            </div>
+          ))}
+        </div>
+
+        {/* Additional Info Skeleton */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 animate-pulse">
+            <div className="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
+            <div className="h-8 bg-gray-200 rounded w-3/4 mb-2"></div>
+            <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {statCards.map((card, index) => (
-          <div
-            key={index}
-            className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">{card.title}</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">{card.value}</p>
-                <p className="text-sm text-green-600 mt-1">{card.change} from last month</p>
-              </div>
-              <div className="text-3xl">{card.icon}</div>
-            </div>
-          </div>
-        ))}
+        <StatsCard
+          title="Revenue"
+          value={`$${(safeRevenue.current || 0).toLocaleString()}`}
+          change={safeRevenue.change || 0}
+          icon="💰"
+          description="From completed payments"
+        />
+        <StatsCard
+          title="New Bookings"
+          value={(safeNewBookings.current || 0).toString()}
+          change={safeNewBookings.change || 0}
+          icon="📅"
+          description="Joined trips last month"
+        />
+        <StatsCard
+          title="Total Customers"
+          value={(safeStats.totalCustomers || 0).toString()}
+          icon="👥"
+          description="Registered users"
+        />
+        <StatsCard
+          title="Pending Enquiries"
+          value={(safeStats.pendingEnquiries || 0).toString()}
+          icon="📧"
+          description="Require attention"
+        />
       </div>
 
-      {/* Recent Activity & Quick Actions */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent Bookings */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Recent Bookings</h3>
-          <div className="space-y-3">
-            {[
-              { name: 'John Doe', tour: 'Bali Adventure', date: '2 hours ago', status: 'Confirmed' },
-              { name: 'Sarah Smith', tour: 'Paris Getaway', date: '4 hours ago', status: 'Pending' },
-              { name: 'Mike Johnson', tour: 'Tokyo Explorer', date: '1 day ago', status: 'Confirmed' },
-            ].map((booking, index) => (
-              <div key={index} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg">
-                <div>
-                  <p className="font-medium text-gray-800">{booking.name}</p>
-                  <p className="text-sm text-gray-600">{booking.tour}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm text-gray-500">{booking.date}</p>
-                  <span className={`inline-block px-2 py-1 text-xs rounded-full ${
-                    booking.status === 'Confirmed' 
-                      ? 'bg-green-100 text-green-800' 
-                      : 'bg-yellow-100 text-yellow-800'
-                  }`}>
-                    {booking.status}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Quick Actions */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Quick Actions</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <button className="p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors text-center">
-              <div className="text-2xl mb-2">➕</div>
-              <p className="text-sm font-medium text-blue-700">Add Tour</p>
-            </button>
-            <button className="p-4 bg-green-50 hover:bg-green-100 rounded-lg transition-colors text-center">
-              <div className="text-2xl mb-2">📝</div>
-              <p className="text-sm font-medium text-green-700">Write Blog</p>
-            </button>
-            <button className="p-4 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors text-center">
-              <div className="text-2xl mb-2">👥</div>
-              <p className="text-sm font-medium text-purple-700">View Customers</p>
-            </button>
-            <button className="p-4 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors text-center">
-              <div className="text-2xl mb-2">📧</div>
-              <p className="text-sm font-medium text-orange-700">Check Enquiries</p>
-            </button>
-          </div>
-        </div>
+      {/* Additional Info */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <StatsCard
+          title="Total Trips"
+          value={(safeStats.totalTrips || 0).toString()}
+          icon="✈️"
+          description="User created trips"
+        />
       </div>
     </div>
   );

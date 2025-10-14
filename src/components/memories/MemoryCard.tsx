@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { Memory, Review } from '@/types/memory';
-import { useAuth } from '@/lib/auth';
 import { showErrorAlert, showWarningAlert } from '@/lib/alertService';
 
 interface MemoryCardProps {
@@ -14,43 +13,44 @@ interface MemoryCardProps {
 export default function MemoryCard({ memory, onDelete, onAddReview }: MemoryCardProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [showReviews, setShowReviews] = useState(false);
+  const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
   const [newReview, setNewReview] = useState({ rating: 5, comment: '' });
-  const { user, isAuthenticated } = useAuth();
 
-  const isOwner = memory.userId === user?.id;
+  const currentMedia = memory.media[currentMediaIndex];
 
   const handleDownload = async () => {
     try {
-      const response = await fetch(memory.image);
+      if (currentMedia.type === 'note') {
+        showWarningAlert('Cannot download', 'Notes cannot be downloaded');
+        return;
+      }
+      
+      const response = await fetch(currentMedia.url);
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `memory-${memory.title}-${Date.now()}.jpg`;
+      const extension = currentMedia.type === 'image' ? 'jpg' : 'mp4';
+      link.download = `memory-${memory.title}-${Date.now()}.${extension}`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Download failed:', error);
-      showErrorAlert('Download failed', 'Failed to download image');
+      showErrorAlert('Download failed', 'Failed to download media');
     }
   };
 
   const handleAddReview = () => {
-    if (!isAuthenticated || !user) {
-      showWarningAlert('Login required', 'Please login to add a review');
-      return;
-    }
-
     if (!newReview.comment.trim()) {
       showWarningAlert('Missing comment', 'Please enter a review comment');
       return;
     }
 
     onAddReview(memory.id, {
-      userId: user.id,
-      userName: user.name,
+      userId: 'user-' + Date.now(), // Generate random user ID
+      userName: 'Anonymous Traveler', // Default username
       rating: newReview.rating,
       comment: newReview.comment
     });
@@ -62,51 +62,126 @@ export default function MemoryCard({ memory, onDelete, onAddReview }: MemoryCard
     ? memory.reviews.reduce((sum, review) => sum + review.rating, 0) / memory.reviews.length
     : 0;
 
+  const nextMedia = () => {
+    setCurrentMediaIndex((prev) => (prev + 1) % memory.media.length);
+  };
+
+  const prevMedia = () => {
+    setCurrentMediaIndex((prev) => (prev - 1 + memory.media.length) % memory.media.length);
+  };
+
   return (
     <div
       className="group relative bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden transition-all duration-500 hover:shadow-2xl hover:scale-[1.02]"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      {/* Image Container */}
+      {/* Media Container */}
       <div className="relative h-64 overflow-hidden">
-        <img
-          src={memory.image}
-          alt={memory.title}
-          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-        />
+        {currentMedia.type === 'image' && (
+          <img
+            src={currentMedia.url}
+            alt={currentMedia.caption || memory.title}
+            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+          />
+        )}
+        
+        {currentMedia.type === 'video' && (
+          <video
+            src={currentMedia.url}
+            className="w-full h-full object-cover"
+            controls
+            poster={currentMedia.thumbnail}
+          >
+            Your browser does not support the video tag.
+          </video>
+        )}
+        
+        {currentMedia.type === 'note' && (
+          <div className="w-full h-full bg-gradient-to-br from-yellow-50 to-orange-50 flex items-center justify-center p-6">
+            <div className="text-center max-w-full">
+              <div className="w-16 h-16 bg-yellow-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+              </div>
+              <p className="text-gray-700 font-medium text-lg break-words">
+                {currentMedia.caption || 'Memory Note'}
+              </p>
+            </div>
+          </div>
+        )}
+        
+        {/* Media Navigation */}
+        {memory.media.length > 1 && (
+          <>
+            <button
+              onClick={prevMedia}
+              className="absolute left-2 top-1/2 transform -translate-y-1/2 w-8 h-8 bg-black bg-opacity-50 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-opacity-70"
+              type="button"
+            >
+              ‹
+            </button>
+            <button
+              onClick={nextMedia}
+              className="absolute right-2 top-1/2 transform -translate-y-1/2 w-8 h-8 bg-black bg-opacity-50 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-opacity-70"
+              type="button"
+            >
+              ›
+            </button>
+            <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 flex gap-1">
+              {memory.media.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => setCurrentMediaIndex(index)}
+                  className={`w-2 h-2 rounded-full transition-all ${
+                    index === currentMediaIndex ? 'bg-white' : 'bg-white bg-opacity-50'
+                  }`}
+                  type="button"
+                />
+              ))}
+            </div>
+          </>
+        )}
         
         {/* Overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
         
         {/* Action Buttons */}
         <div className="absolute top-4 right-4 flex gap-2">
-          {/* Download Button */}
-          <button
-            onClick={handleDownload}
-            className="w-10 h-10 bg-blue-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 hover:scale-110 hover:bg-blue-600 shadow-lg"
-            title="Download image"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-          </button>
-
-          {/* Delete Button - Only for owner */}
-          {isOwner && (
+          {/* Download Button - Only for images and videos */}
+          {currentMedia.type !== 'note' && (
             <button
-              onClick={() => onDelete(memory.id)}
-              className="w-10 h-10 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 hover:scale-110 hover:bg-red-600 shadow-lg"
-              title="Delete memory"
+              onClick={handleDownload}
+              className="w-10 h-10 bg-blue-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 hover:scale-110 hover:bg-blue-600 shadow-lg"
+              title="Download media"
+              type="button"
             >
-              ×
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
             </button>
           )}
+
+          {/* Delete Button - Always show since no auth */}
+          <button
+            onClick={() => onDelete(memory.id)}
+            className="w-10 h-10 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 hover:scale-110 hover:bg-red-600 shadow-lg"
+            title="Delete memory"
+            type="button"
+          >
+            ×
+          </button>
+        </div>
+
+        {/* Media Type Badge */}
+        <div className="absolute top-4 left-4 bg-black/70 text-white px-3 py-1 rounded-full text-sm backdrop-blur-sm capitalize">
+          {currentMedia.type} {memory.media.length > 1 && `(${currentMediaIndex + 1}/${memory.media.length})`}
         </div>
 
         {/* Reviews Badge */}
         {memory.reviews.length > 0 && (
-          <div className="absolute top-4 left-4 bg-black/70 text-white px-3 py-1 rounded-full text-sm backdrop-blur-sm">
+          <div className="absolute top-12 left-4 bg-black/70 text-white px-3 py-1 rounded-full text-sm backdrop-blur-sm">
             ⭐ {averageRating.toFixed(1)} ({memory.reviews.length})
           </div>
         )}
@@ -121,15 +196,30 @@ export default function MemoryCard({ memory, onDelete, onAddReview }: MemoryCard
           <button
             onClick={() => setShowReviews(!showReviews)}
             className="ml-2 text-blue-500 hover:text-blue-600 text-sm font-medium"
+            type="button"
           >
             {showReviews ? 'Hide' : 'Reviews'}
           </button>
         </div>
         
-        {memory.notes && (
+        {memory.description && (
           <p className="text-gray-600 mb-4 line-clamp-2 leading-relaxed">
-            {memory.notes}
+            {memory.description}
           </p>
+        )}
+        
+        {/* Tags */}
+        {memory.tags && memory.tags.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-4">
+            {memory.tags.map((tag, index) => (
+              <span
+                key={index}
+                className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full"
+              >
+                #{tag}
+              </span>
+            ))}
+          </div>
         )}
         
         <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
@@ -148,45 +238,52 @@ export default function MemoryCard({ memory, onDelete, onAddReview }: MemoryCard
           </div>
         )}
 
+        {/* Media Caption */}
+        {currentMedia.caption && (
+          <div className="bg-gray-50 rounded-xl p-3 mb-4">
+            <p className="text-sm text-gray-700">{currentMedia.caption}</p>
+          </div>
+        )}
+
         {/* Reviews Section */}
         {showReviews && (
           <div className="border-t pt-4 mt-4">
-            {/* Add Review Form */}
-            {isAuthenticated && (
-              <div className="mb-4 p-4 bg-gray-50 rounded-2xl">
-                <h4 className="font-semibold text-gray-900 mb-3">Add Your Review</h4>
-                
-                {/* Star Rating */}
-                <div className="flex items-center gap-1 mb-3">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <button
-                      key={star}
-                      onClick={() => setNewReview({ ...newReview, rating: star })}
-                      className="text-2xl transition-transform hover:scale-110"
-                    >
-                      {star <= newReview.rating ? '⭐' : '☆'}
-                    </button>
-                  ))}
-                  <span className="ml-2 text-sm text-gray-600">{newReview.rating}/5</span>
-                </div>
-
-                {/* Review Comment */}
-                <textarea
-                  value={newReview.comment}
-                  onChange={(e) => setNewReview({ ...newReview, comment: e.target.value })}
-                  placeholder="Share your thoughts about this memory..."
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none text-sm"
-                />
-
-                <button
-                  onClick={handleAddReview}
-                  className="mt-2 w-full bg-blue-500 text-white py-2 rounded-xl hover:bg-blue-600 transition-colors font-medium"
-                >
-                  Submit Review
-                </button>
+            {/* Add Review Form - Always show since no auth */}
+            <div className="mb-4 p-4 bg-gray-50 rounded-2xl">
+              <h4 className="font-semibold text-gray-900 mb-3">Add Your Review</h4>
+              
+              {/* Star Rating */}
+              <div className="flex items-center gap-1 mb-3">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    onClick={() => setNewReview({ ...newReview, rating: star })}
+                    className="text-2xl transition-transform hover:scale-110"
+                    type="button"
+                  >
+                    {star <= newReview.rating ? '⭐' : '☆'}
+                  </button>
+                ))}
+                <span className="ml-2 text-sm text-gray-600">{newReview.rating}/5</span>
               </div>
-            )}
+
+              {/* Review Comment */}
+              <textarea
+                value={newReview.comment}
+                onChange={(e) => setNewReview({ ...newReview, comment: e.target.value })}
+                placeholder="Share your thoughts about this memory..."
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none text-sm"
+              />
+
+              <button
+                onClick={handleAddReview}
+                className="mt-2 w-full bg-blue-500 text-white py-2 rounded-xl hover:bg-blue-600 transition-colors font-medium"
+                type="button"
+              >
+                Submit Review
+              </button>
+            </div>
 
             {/* Reviews List */}
             <div className="space-y-3 max-h-60 overflow-y-auto">

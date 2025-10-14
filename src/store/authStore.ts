@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 
 export interface User {
   name: any;
@@ -17,12 +17,14 @@ interface AuthState {
   isAuthenticated: boolean;
   loading: boolean;
   error: string | null;
+  isInitialized: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, firstName: string, lastName: string, profilePic?: string) => Promise<void>;
   logout: () => void;
   clearError: () => void;
   updateProfile: (updates: Partial<User>) => void;
   updateUserTrips: (trips: string[]) => void;
+  initialize: () => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -32,6 +34,11 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       loading: false,
       error: null,
+      isInitialized: false,
+
+      initialize: () => {
+        set({ isInitialized: true });
+      },
 
       login: async (email: string, password: string) => {
         set({ loading: true, error: null });
@@ -182,6 +189,10 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'auth-storage',
+      storage: createJSONStorage(() => localStorage),
+      onRehydrateStorage: () => (state) => {
+        state?.initialize();
+      },
     }
   )
 );

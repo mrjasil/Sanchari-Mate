@@ -1,6 +1,6 @@
 export interface Trip {
   creatorId: string | undefined;
-  imageUrl: any;
+  imageUrl: string | null; // Change from 'any' to 'string | null'
   ownerId: string;
   user: any;
   userId: string;
@@ -13,7 +13,7 @@ export interface Trip {
   budget: number;
   interests: string;
   status: 'planned' | 'ongoing' | 'completed' | 'cancelled';
-  image: string;
+  image: string; // Keep this for backward compatibility
   description: string;
   category: string;
   accommodation: string;

@@ -1,4 +1,5 @@
 import { TripFormData } from '@/types/Trip';
+import ImageUploadField from '@/components/ui/ImageUploadField';
 
 interface Step1BasicProps {
   formData: TripFormData;
@@ -166,6 +167,18 @@ export default function Step1Basic({ formData, errors, onInputChange, onCategory
             categories.find(c => c.value === cat)?.label.replace(/[^a-zA-Z\s]/g, '')
           ).join(', ') : 'None'}
         </p>
+      </div>
+
+      {/* Trip Cover Image */}
+      <div className="md:col-span-2">
+        <label className="block text-sm font-medium text-gray-700 mb-2">Trip Cover Image</label>
+        <ImageUploadField
+          value={formData.image}
+          onChange={(value) => onInputChange({ target: { name: 'image', value: value } } as React.ChangeEvent<HTMLInputElement>)}
+          label="Trip Cover Image"
+          placeholder="Enter image URL or upload an image"
+        />
+        {errors.image && <p className="mt-1 text-sm text-red-600">{errors.image}</p>}
       </div>
     </div>
   );

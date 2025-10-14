@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { ChatUser, ChatMessage, ChatRequest, ChatSession } from '@/types/chat';
+import { ChatUser, ChatMessage, ChatRequest, ChatSession } from '@/types/chats';
 
 interface ChatState {
   // State

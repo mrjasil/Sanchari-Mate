@@ -1,7 +1,7 @@
 const API_BASE_URL = 'http://localhost:3001';
 
 // Generic API function with fallback
-async function apiCall(endpoint: string, options: RequestInit = {}) {
+export async function apiCall(endpoint: string, options: RequestInit = {}) {
   try {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       headers: {
@@ -55,30 +55,27 @@ function handleLocalStorageFallback(endpoint: string, options: RequestInit = {})
     case 'POST':
       const newItem = JSON.parse(options.body as string);
       newItem.id = newItem.id || Date.now().toString();
+      newItem.createdAt = newItem.createdAt || new Date().toISOString();
+      newItem.updatedAt = new Date().toISOString();
+      
       const existingData = JSON.parse(localStorage.getItem(key) || '[]');
       const updatedData = [...existingData, newItem];
       localStorage.setItem(key, JSON.stringify(updatedData));
       return newItem;
     
     case 'PUT':
-      const putData = JSON.parse(options.body as string);
+    case 'PATCH':
+      const updateData = JSON.parse(options.body as string);
       const allItems = JSON.parse(localStorage.getItem(key) || '[]');
       const itemIndex = allItems.findIndex((item: any) => item.id === id);
       if (itemIndex !== -1) {
-        allItems[itemIndex] = { ...allItems[itemIndex], ...putData };
+        allItems[itemIndex] = { 
+          ...allItems[itemIndex], 
+          ...updateData,
+          updatedAt: new Date().toISOString()
+        };
         localStorage.setItem(key, JSON.stringify(allItems));
         return allItems[itemIndex];
-      }
-      return null;
-    
-    case 'PATCH':
-      const patchData = JSON.parse(options.body as string);
-      const allData = JSON.parse(localStorage.getItem(key) || '[]');
-      const index = allData.findIndex((item: any) => item.id === id);
-      if (index !== -1) {
-        allData[index] = { ...allData[index], ...patchData };
-        localStorage.setItem(key, JSON.stringify(allData));
-        return allData[index];
       }
       return null;
     
@@ -93,7 +90,39 @@ function handleLocalStorageFallback(endpoint: string, options: RequestInit = {})
   }
 }
 
-// Trip API functions
+// Generic CRUD operations
+export const createResource = (resource: string) => ({
+  getAll: (query?: string): Promise<any[]> => 
+    apiCall(query ? `/${resource}?${query}` : `/${resource}`),
+  
+  getById: (id: string): Promise<any> => 
+    apiCall(`/${resource}/${id}`),
+  
+  create: (data: any): Promise<any> =>
+    apiCall(`/${resource}`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  
+  update: (id: string, data: any): Promise<any> =>
+    apiCall(`/${resource}/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  
+  patch: (id: string, data: any): Promise<any> =>
+    apiCall(`/${resource}/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+  
+  delete: (id: string): Promise<{ success: boolean }> =>
+    apiCall(`/${resource}/${id}`, {
+      method: 'DELETE',
+    }),
+});
+
+// Trip API functions - ADD THIS SECTION
 import { Trip, TripParticipant, PaymentDetails } from '@/types/Trip';
 
 export const tripAPI = {
@@ -142,7 +171,7 @@ export const tripAPI = {
       method: 'DELETE',
     }),
 
-  // Join trip functionality - FIXED: Only basic PaymentDetails properties
+  // Join trip functionality
   joinTrip: async (tripId: string, userId: string, passengers: number = 1): Promise<TripParticipant> => {
     // Get the trip first
     const trip = await tripAPI.getTrip(tripId);
@@ -206,7 +235,7 @@ export const tripAPI = {
 
     await tripAPI.updateTrip(tripId, updatedTrip);
 
-    // Create payment record - ONLY basic properties
+    // Create payment record
     const paymentData = {
       id: Date.now().toString(),
       tripId,
@@ -250,7 +279,7 @@ export const tripAPI = {
     return participants.filter((p: any) => p.tripId === tripId);
   },
 
-  // Payment functions - FIXED: Only basic properties
+  // Payment functions
   createPayment: (paymentData: any): Promise<PaymentDetails> =>
     apiCall('/payments', {
       method: 'POST',

@@ -2,11 +2,12 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { tripAPI } from "@/lib/api";
+import { tripService } from "@/services/tripService";
 import { Trip } from "@/types/Trip";
 import { useAuthStore } from "@/store/authStore";
 import TripCard from "@/components/ui/TripCard/TripCard";
 import { useAlert } from "@/hooks/useAlert";
+import { formatDate, isUpcomingTrip, isOngoingTrip, isCompletedTrip } from "@/lib/utils";
 
 export default function MyTripsPage() {
   const [trips, setTrips] = useState<Trip[]>([]);
@@ -14,7 +15,7 @@ export default function MyTripsPage() {
   const [error, setError] = useState<string | null>(null);
   
   const router = useRouter();
-  const { user, isAuthenticated } = useAuthStore();
+  const { user, isAuthenticated, isInitialized } = useAuthStore();
   const alert = useAlert();
 
   const fetchUserTrips = async () => {
@@ -26,7 +27,7 @@ export default function MyTripsPage() {
     setLoading(true);
     setError(null);
     try {
-      const userTrips = await tripAPI.getUserTrips(user.id);
+      const userTrips = await tripService.getUserTrips(user.id);
       setTrips(userTrips || []);
     } catch (error) {
       console.error('Failed to fetch trips:', error);
@@ -37,6 +38,14 @@ export default function MyTripsPage() {
   };
 
   useEffect(() => {
+    // Wait for auth to be initialized before checking authentication
+    if (!isInitialized) return;
+    
+    if (!isAuthenticated || !user) {
+      router.push('/login');
+      return;
+    }
+
     fetchUserTrips();
     
     const handleVisibilityChange = () => {
@@ -50,7 +59,21 @@ export default function MyTripsPage() {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [isAuthenticated, user, router]);
+  }, [isAuthenticated, user, router, isInitialized]);
+
+  // Show loading while auth is initializing
+  if (!isInitialized) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600 text-lg">Initializing...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const handleEdit = (tripId: string) => {
     console.log('Editing trip:', tripId);
@@ -61,7 +84,6 @@ export default function MyTripsPage() {
     const tripToDelete = trips.find(trip => trip.id === tripId);
     if (!tripToDelete) return;
 
-    // Check if deletion is allowed
     const tripStartDate = new Date(tripToDelete.startDate);
     const today = new Date();
     
@@ -77,7 +99,7 @@ export default function MyTripsPage() {
     
     if (result.isConfirmed) {
       try {
-        await tripAPI.deleteTrip(tripId);
+        await tripService.delete(tripId);
         await fetchUserTrips();
         await alert.success('Success!', 'Your trip has been deleted successfully.');
       } catch (error) {
@@ -87,25 +109,10 @@ export default function MyTripsPage() {
     }
   };
 
-  // Refresh trips manually
-  const refreshTrips = async () => {
-    const loadingAlert = await alert.loading('Refreshing trips...');
-    try {
-      await fetchUserTrips();
-      await alert.close();
-      await alert.success('Refreshed!', 'Your trips have been updated.');
-    } catch (error) {
-      await alert.close();
-      await alert.error('Error', 'Failed to refresh trips.');
-    }
-  };
-
-  // Handle action errors from TripCard
   const handleActionError = (errorMessage: string) => {
     alert.error('Action Failed', errorMessage);
   };
 
-  // Clear errors
   const clearErrors = () => {
     setError(null);
   };
@@ -135,16 +142,7 @@ export default function MyTripsPage() {
               </h1>
               <p className="text-gray-600 mt-2 text-lg">Manage and organize your travel adventures</p>
             </div>
-            <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-end">
-              {/* <button
-                onClick={refreshTrips}
-                className="inline-flex items-center px-6 py-3 bg-white text-gray-700 border border-gray-300 rounded-xl hover:bg-gray-50 transition-all duration-200 shadow-sm hover:shadow-md font-medium"
-              >
-                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                {/* Refresh Trips */}
-              {/* </button>  */}
+            <div className="flex justify-center lg:justify-end">
               <Link
                 href="/planner"
                 className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-lg hover:shadow-xl font-semibold text-center justify-center"
@@ -236,20 +234,20 @@ export default function MyTripsPage() {
                 <div className="text-gray-600 text-sm">Total Trips</div>
               </div>
               <div>
-                <div className="text-2xl font-bold text-green-600">
-                  {trips.filter(trip => trip.status === 'planned').length}
+                <div className="text-2xl font-bold text-blue-600">
+                  {trips.filter(trip => isUpcomingTrip(trip)).length}
                 </div>
                 <div className="text-gray-600 text-sm">Planned</div>
               </div>
               <div>
-                <div className="text-2xl font-bold text-orange-600">
-                  {trips.filter(trip => trip.status === 'ongoing').length}
+                <div className="text-2xl font-bold text-green-600">
+                  {trips.filter(trip => isOngoingTrip(trip)).length}
                 </div>
                 <div className="text-gray-600 text-sm">Ongoing</div>
               </div>
               <div>
                 <div className="text-2xl font-bold text-gray-600">
-                  {trips.filter(trip => trip.status === 'completed').length}
+                  {trips.filter(trip => isCompletedTrip(trip)).length}
                 </div>
                 <div className="text-gray-600 text-sm">Completed</div>
               </div>
